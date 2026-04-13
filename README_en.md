@@ -20,6 +20,64 @@ ________________________________________________________________________________
 
 ## Examples
 
+### Better Random Play
+> Random Shuffle (maybe not that random) with a specific music as a starting point, to hear the musics with simular style
+>
+> seriously, this is what really useful.
+#### **Example 1**
+
+<img src="assets/img/roaming1.jpg" alt="漫游工具的示例用法" title="漫游1" width="350">
+
+
+
+Listen To The Search Results (Snippets):
+
+(Streaming links provided to avoid copyright issues)
+
+#Starting point：[Ans IsL - HOYO-MiX](https://music.163.com/#/song?id=1920737988)
+
+[Inverted Island - Obfusc](https://music.163.com/#/song?id=28855562)  
+[Oceanic Glow - Obfusc](https://music.163.com/#/song?id=28855563)  
+[STRANGE SUITCASE - 日向大介](https://music.163.com/#/song?id=480675)  
+[不安之种 - 三Z-STUDIO/HOYO-MiX](https://music.163.com/#/song?id=2658039441)  
+[妖刀幻境-三Z-STUDIO/HOYO-MiX](https://music.163.com/#/song?id=2658039040)  
+[!BUG!-三Z STUDIO/HOYO-MiX](https://music.163.com/#/song?id=2658039017)  
+[Door - C418](https://music.163.com/#/song?id=4010184)  
+[Blind Spots - C418](https://music.163.com/#/song?id=27961150)  
+[Mall - C418](https://music.163.com/#/song?id=27961173)
+[Moog City 2 - C418](https://music.163.com/#/song?id=27961152)
+
+
+
+[Learn the Example Music Library](docs/musicLib.md)
+
+#### **Example 2**
+
+
+<img src="assets/img/roaming2.jpg" alt="漫游工具的示例用法" title="漫游2" width="350">
+
+
+Listen To The Search Results (Snippets):
+
+(Streaming links provided to avoid copyright issues)
+
+#起始音乐：[NO, Thank You! - 放課後ティータイム](https://music.163.com/#/song?id=1317233324)
+
+[Addicted... - 藍井エイル](https://music.163.com/#/song?id=27969039)   
+[ごめんね、いいコじゃいられない。 - 沢井美空](https://music.163.com/#/song?id=27902540)  
+[ambiguous GARNiDELiA](https://music.163.com/#/song?id=1347688545)
+[Gravity - GARNiDELiA](https://music.163.com/#/song?id=1347687847)  
+[ORiGiNAL-GARNiDELiA](https://music.163.com/#/song?id=1347688546)
+[独法師 - TetraCalyx](https://music.163.com/#/song?id=468513224)  
+[崩壊世界の歌姫 - TetraCalyx](https://music.163.com/#/song?id=468513218)
+
+
+
+
+[Learn the Example Music Library](docs/musicLib.md)
+
+
+
 ### Semantic Search The Music That Matches the Vibe
 
 > Describe the current vibe, music type, feelings, to search the suitable music.
@@ -77,62 +135,6 @@ Listen To The Search Results (Snippets):
 [komorebi - Minecraft/谷岡久美](https://music.163.com/#/song?id=2145324209)
 [pokopoko -Minecraft/谷岡久美](https://music.163.com/#/song?id=2145324210)
 [yakusoku - Minecraft/谷岡久美](https://music.163.com/#/song?id=2145324211)
-
-
-
-
-[Learn the Example Music Library](docs/musicLib.md)
-
-
-### Better Random Play
-> Random Shuffle (maybe not that random) with a specific music as a starting point, to hear the musics with simular style
-
-#### **示例1**
-
-<img src="assets/img/roaming1.jpg" alt="漫游工具的示例用法" title="漫游1" width="350">
-
-
-
-Listen To The Search Results (Snippets):
-
-(Streaming links provided to avoid copyright issues)
-
-#Starting point：[Ans IsL - HOYO-MiX](https://music.163.com/#/song?id=1920737988)
-
-[Inverted Island - Obfusc](https://music.163.com/#/song?id=28855562)  
-[Oceanic Glow - Obfusc](https://music.163.com/#/song?id=28855563)  
-[STRANGE SUITCASE - 日向大介](https://music.163.com/#/song?id=480675)  
-[不安之种 - 三Z-STUDIO/HOYO-MiX](https://music.163.com/#/song?id=2658039441)  
-[妖刀幻境-三Z-STUDIO/HOYO-MiX](https://music.163.com/#/song?id=2658039040)  
-[!BUG!-三Z STUDIO/HOYO-MiX](https://music.163.com/#/song?id=2658039017)  
-[Door - C418](https://music.163.com/#/song?id=4010184)  
-[Blind Spots - C418](https://music.163.com/#/song?id=27961150)  
-[Mall - C418](https://music.163.com/#/song?id=27961173)
-[Moog City 2 - C418](https://music.163.com/#/song?id=27961152)
-
-
-
-[Learn the Example Music Library](docs/musicLib.md)
-
-#### **Example 2**
-
-
-<img src="assets/img/roaming2.jpg" alt="漫游工具的示例用法" title="漫游2" width="350">
-
-
-Listen To The Search Results (Snippets):
-
-(Streaming links provided to avoid copyright issues)
-
-#起始音乐：[NO, Thank You! - 放課後ティータイム](https://music.163.com/#/song?id=1317233324)
-
-[Addicted... - 藍井エイル](https://music.163.com/#/song?id=27969039)   
-[ごめんね、いいコじゃいられない。 - 沢井美空](https://music.163.com/#/song?id=27902540)  
-[ambiguous GARNiDELiA](https://music.163.com/#/song?id=1347688545)
-[Gravity - GARNiDELiA](https://music.163.com/#/song?id=1347687847)  
-[ORiGiNAL-GARNiDELiA](https://music.163.com/#/song?id=1347688546)
-[独法師 - TetraCalyx](https://music.163.com/#/song?id=468513224)  
-[崩壊世界の歌姫 - TetraCalyx](https://music.163.com/#/song?id=468513218)
 
 
 
