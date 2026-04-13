@@ -17,8 +17,8 @@ android {
         applicationId = "com.bbblllllocck.canned_emotions"
         minSdk = 28
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.3.1-alpha"
+        versionCode = 3
+        versionName = "0.3.2-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

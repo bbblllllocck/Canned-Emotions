@@ -34,16 +34,17 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.bbblllllocck.canned_emotions.ui.components.BackNavButton
+import com.bbblllllocck.canned_emotions.ui.features.aboutScreen.AboutScreen
 import com.bbblllllocck.canned_emotions.ui.features.apiScreen.APIScreen
 import com.bbblllllocck.canned_emotions.ui.features.databaseScreen.DatabaseScreen
 import com.bbblllllocck.canned_emotions.ui.features.scanScreen.ScanScreen
-import com.bbblllllocck.canned_emotions.ui.features.start.StartScreen
+import com.bbblllllocck.canned_emotions.ui.features.startScreen.StartScreen
 import kotlinx.coroutines.launch
 
 private data class DrawerDestination(val route: String, val title: String)
 
 private val drawerDestinations = listOf(
-    DrawerDestination("start", "开始"),
+    DrawerDestination("startScreen", "开始"),
     DrawerDestination("database", "数据库"),
     DrawerDestination("api", "API"),
     DrawerDestination("scan", "扫描"),
@@ -60,7 +61,7 @@ fun DrawerMenu() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val isStartRoute = currentRoute == "start"
+    val isStartRoute = currentRoute == "startScreen"
     val isDrawerVisible =
         drawerState.currentValue != DrawerValue.Closed || drawerState.targetValue != DrawerValue.Closed // treat in-flight animation as visible
 
@@ -125,7 +126,7 @@ fun DrawerMenu() {
                 } else {
                     BackNavButton(
                         onClick = {
-                            navController.navigate("start") {
+                            navController.navigate("startScreen") {
                                 popUpTo(navController.graph.findStartDestination().id) {
                                     saveState = true
                                 }
@@ -139,16 +140,16 @@ fun DrawerMenu() {
 
                 NavHost(
                     navController = navController,
-                    startDestination = "start",
+                    startDestination = "startScreen",
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    composable("start") { StartScreen() }
+                    composable("startScreen") { StartScreen() }
                     composable("database") { DatabaseScreen() }
                     // Keep route registered for safety, but hide it from drawer UI.
                     composable("player") { ScreenPlaceholder("播放器") }
                     composable("api") { APIScreen() }
                     composable("scan") { ScanScreen() }
-                    composable("about") { ScreenPlaceholder("关于") }
+                    composable("about") { AboutScreen() }
                 }
             }
         }

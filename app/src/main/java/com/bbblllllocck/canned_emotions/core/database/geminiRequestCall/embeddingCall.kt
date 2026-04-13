@@ -62,7 +62,7 @@ object EmbeddingCall {
             /*
              * NOTE (debug record, keep for now):
              * 1) We intentionally run Transformer on Main.immediate because Media3 Transformer requires
-             *    create/listener/start to stay on the same looper thread.
+             *    create/listener/startScreen to stay on the same looper thread.
              * 哦对这块要修，至于暂停的问题，我打算给UI加个延迟。
              *
              * 2) We have seen intermittent ExportException on some devices/codecs (for example FLAC decoder)
@@ -73,7 +73,7 @@ object EmbeddingCall {
              *
              * 3) Current decision: do not add retry/fallback logic yet; keep behavior simple first, observe.
              * 4) When we come back to fix this, preferred order is:
-             *    - prevent same task double-start in queue layer,
+             *    - prevent same task double-startScreen in queue layer,
              *    - add one lightweight retry around export,
              *    - optionally fallback to text-only embedding when audio export keeps failing.
              * 还有api那块异常处理要做。

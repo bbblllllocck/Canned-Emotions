@@ -1,5 +1,5 @@
 //这一整块配套的逻辑和功能全部由AI生成，易变动，不保证稳定性，可用性
-package com.bbblllllocck.canned_emotions.ui.features.start
+package com.bbblllllocck.canned_emotions.ui.features.startScreen
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory

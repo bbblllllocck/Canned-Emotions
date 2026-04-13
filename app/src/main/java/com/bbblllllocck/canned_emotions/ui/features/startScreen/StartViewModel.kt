@@ -1,4 +1,4 @@
-package com.bbblllllocck.canned_emotions.ui.features.start
+package com.bbblllllocck.canned_emotions.ui.features.startScreen
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
