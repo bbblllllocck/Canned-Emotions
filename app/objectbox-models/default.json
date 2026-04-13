@@ -1,0 +1,82 @@
+{
+  "_note1": "KEEP THIS FILE! Check it into a version control system (VCS) like git.",
+  "_note2": "ObjectBox manages crucial IDs for your object model. See docs for details.",
+  "_note3": "If you have VCS merge conflicts, you must resolve them according to ObjectBox docs.",
+  "entities": [
+    {
+      "id": "1:6539866670427344341",
+      "lastPropertyId": "12:1850833757735834890",
+      "name": "MusicScanTaskEntity",
+      "properties": [
+        {
+          "id": "1:951150937365691950",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "4:3184024580709238821",
+          "name": "title",
+          "type": 9
+        },
+        {
+          "id": "5:4009726352076736395",
+          "name": "album",
+          "type": 9
+        },
+        {
+          "id": "6:8835443291138025945",
+          "name": "artist",
+          "type": 9
+        },
+        {
+          "id": "7:6991690400317005360",
+          "name": "status",
+          "type": 5
+        },
+        {
+          "id": "9:4123701417965527461",
+          "name": "filePath",
+          "indexId": "2:7816418708481458457",
+          "type": 9,
+          "flags": 2080
+        },
+        {
+          "id": "10:8491708342985218038",
+          "name": "createdAtMillis",
+          "type": 6
+        },
+        {
+          "id": "11:2371298866411987122",
+          "name": "updatedAtMillis",
+          "type": 6
+        },
+        {
+          "id": "12:1850833757735834890",
+          "name": "embedding",
+          "indexId": "3:7377078746284871609",
+          "type": 28,
+          "flags": 8
+        }
+      ],
+      "relations": []
+    }
+  ],
+  "lastEntityId": "1:6539866670427344341",
+  "lastIndexId": "3:7377078746284871609",
+  "lastRelationId": "0:0",
+  "lastSequenceId": "0:0",
+  "modelVersion": 5,
+  "modelVersionParserMinimum": 5,
+  "retiredEntityUids": [],
+  "retiredIndexUids": [
+    3476267976842858118
+  ],
+  "retiredPropertyUids": [
+    7081114562867403352,
+    171348723680642817,
+    3244023471113185197
+  ],
+  "retiredRelationUids": [],
+  "version": 1
+}

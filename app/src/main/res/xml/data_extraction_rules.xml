@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="datastore/secure_api_store.preferences_pb"/>
+        <exclude domain="sharedpref" path="tink_api_keyset.xml"/>
+        <exclude domain="sharedpref" path="secure_api_prefs.xml"/>
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="datastore/secure_api_store.preferences_pb"/>
+        <exclude domain="sharedpref" path="tink_api_keyset.xml"/>
+        <exclude domain="sharedpref" path="secure_api_prefs.xml"/>
+    </device-transfer>
+</data-extraction-rules>
