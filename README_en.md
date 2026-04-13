@@ -161,6 +161,8 @@ Add your local music library path in the "扫描" interface and click "开始扫
 
 ### Add Gemini API Key
 
+>> #This app is powered by Gemini API Key. Get it on [Google AI Studio](https://aistudio.google.com/app/apikey) for free. (Make sure your network environment meets Google's requirements).
+>
 > #Requires a Gemini API Key. The free tier quota is usually enough.
 
 Enter "API" page from menu "菜单"
