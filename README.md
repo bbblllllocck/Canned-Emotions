@@ -11,6 +11,10 @@
 
 **下载 [GitHub Release](https://github.com/bbblllllocck/Canned-Emotions/releases)**
 
+> *好吧，没人注意到这东西*
+> 
+> *现在只要有一个人，下载release包然后试用，向我在discussions或者issues里面提出任何问题，我就会马上去修。*
+
 在看到 Gemini Embedding 2 发布后我花了近两周时间构建出了这个原型。利用模型的多模态能力为音频生成向量再进行对称检索来获得更智能的音乐播放能力。  
 
 基于我对模型和音乐播放的浅显见解，我（暂时）构想出了两种基础的操作方式：

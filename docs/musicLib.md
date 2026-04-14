@@ -12,6 +12,8 @@
 ![albums6.png](../assets/img/albums6.png)  
 ![albums7.png](../assets/img/albums7.png)  
 
+> 截图来自SaltPlayer
+
 文件目录
 
 ```
