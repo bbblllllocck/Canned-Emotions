@@ -22,7 +22,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileNotFoundException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -152,7 +151,7 @@ object EmbeddingCall {
         ////////copilot generated
 
         val response = try {
-            ClientManager.executeWithRetry { client ->
+            ClientManager.executeWithRetry("embedding") { client ->
                 client.models.embedContent(
                     MODEL_NAME,
                     integratedContent,
@@ -173,8 +172,6 @@ object EmbeddingCall {
             ?: emptyList()
 
         return@withContext vectorList.toFloatArray()
-
-
 
     }
 }
