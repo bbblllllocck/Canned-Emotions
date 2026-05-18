@@ -60,7 +60,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.bbblllllocck.canned_emotions.core.player.WeightBreakdown
 import com.bbblllllocck.canned_emotions.core.player.SimpleAudioPlayer
+import com.bbblllllocck.canned_emotions.core.database.objectboxFunctions.MusicScanTaskEntity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
@@ -69,6 +71,31 @@ import kotlinx.coroutines.yield
 enum class SearchMode {
     SYMMETRIC,
     ASSIST
+}
+
+private fun formatWeightBreakdown(item: MusicScanTaskEntity, breakdown: WeightBreakdown): List<String> {
+    val typeLabel = when (item.musicType) {
+        0 -> "Pure"
+        1 -> "Song"
+        else -> "Unknown"
+    }
+    return listOf(
+        "sim %.3f · int %.3f · base %.3f".format(
+            breakdown.baseSimilarity,
+            breakdown.integratedParameter,
+            breakdown.baseScore
+        ),
+        "art %.3f · alb %.3f · type %.3f (%s)".format(
+            breakdown.artistDuplicateWeight,
+            breakdown.albumDuplicateWeight,
+            breakdown.songTypeWeight,
+            typeLabel
+        ),
+        "pun %.3f · final %.3f".format(
+            breakdown.punishmentWeight,
+            breakdown.finalScore
+        )
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -121,30 +148,29 @@ fun StartScreen() {
         }
     }
 
-    fun playItem(index: Int) {
-        if (index !in uiState.playlist.indices) return
-
-        startViewModel.setCurrentIndex(index)
-        val item = uiState.playlist[index]
-
+    fun playSong(item: MusicScanTaskEntity?) {
+        if (item == null) return
         player.playOrToggle(
             source = item.filePath,
             onPreparing = {},
             onPlaying = {},
             onCompleted = {
-                val nextIndex = startViewModel.nextIndexOrNull()
-                if (nextIndex != null) {
-                    playItem(nextIndex)
-                }
+                val next = startViewModel.autoAdvance()
+                playSong(next)
             },
             onError = {}
         )
     }
 
+    fun playFromIndex(index: Int) {
+        val item = startViewModel.switchToIndex(index)
+        playSong(item)
+    }
+
     LaunchedEffect(uiState.pendingAutoPlayIndex) {
         val index = uiState.pendingAutoPlayIndex
         if (index != null) {
-            playItem(index)
+            playFromIndex(index)
             startViewModel.consumeAutoPlayRequest()
         }
     }
@@ -282,7 +308,7 @@ fun StartScreen() {
                             onClick = {
                                 focusManager.clearFocus(force = true)
                                 isEditing = false
-                                startViewModel.startFromSelectedSeed()
+                                startViewModel.startPlaylist()
                             },
                             enabled = !uiState.isLoading && uiState.selectedSeedSong != null,
                             modifier = Modifier.weight(1f)
@@ -300,16 +326,42 @@ fun StartScreen() {
                 }
                 items(uiState.playlist, key = { it.id }) { item ->
                     val listIndex = uiState.playlist.indexOfFirst { it.id == item.id }
-                    FilledTonalButton(
-                        onClick = { playItem(listIndex) },
+                    val breakdown = if (uiState.showWeightDetails) {
+                        uiState.weightBreakdowns[item.id]
+                    } else {
+                        null
+                    }
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "${item.title.ifBlank { "(无标题)" }} - ${item.artist.ifBlank { "未知艺术家" }}",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        FilledTonalButton(
+                            onClick = { playFromIndex(listIndex) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = "${item.title.ifBlank { "(无标题)" }} - ${item.artist.ifBlank { "未知艺术家" }}",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                if (breakdown != null) {
+                                    val lines = formatWeightBreakdown(item, breakdown)
+                                    for (line in lines) {
+                                        Text(
+                                            text = line,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        TextButton(onClick = { startViewModel.deleteAtIndex(listIndex) }) {
+                            Text("删除")
+                        }
                     }
                 }
             }
@@ -439,11 +491,7 @@ fun StartScreen() {
                     onClick = {
                         focusManager.clearFocus(force = true)
                         isEditing = false
-                        val previousPlaylistSize = uiState.playlist.size
-                        startViewModel.searchAndAppend()
-                        if (previousPlaylistSize == 0) {
-                            player.stop()
-                        }
+                        startViewModel.searchAndStart()
                     },
                     enabled = !uiState.isLoading,
                     modifier = Modifier.height(36.dp),
@@ -501,11 +549,8 @@ fun StartScreen() {
                     onClick = {
                         focusManager.clearFocus(force = true)
                         isEditing = false
-                        val activeIndex = uiState.currentIndex ?: return@Button
-                        val previousIndex = activeIndex - 1
-                        if (previousIndex in uiState.playlist.indices) {
-                            playItem(previousIndex)
-                        }
+                        val previous = startViewModel.playPrevious()
+                        playSong(previous)
                     },
                     modifier = Modifier.height(42.dp)
                 ) {
@@ -517,8 +562,7 @@ fun StartScreen() {
                         focusManager.clearFocus(force = true)
                         isEditing = false
                         if (uiState.playlist.isEmpty()) return@Button
-                        val activeIndex = uiState.currentIndex ?: 0
-                        playItem(activeIndex)
+                        playSong(currentItem ?: uiState.playlist.firstOrNull())
                     },
                     modifier = Modifier.height(42.dp)
                 ) {
@@ -531,10 +575,8 @@ fun StartScreen() {
                     onClick = {
                         focusManager.clearFocus(force = true)
                         isEditing = false
-                        val nextIndex = startViewModel.nextIndexOrNull()
-                        if (nextIndex != null) {
-                            playItem(nextIndex)
-                        }
+                        val next = startViewModel.playNext()
+                        playSong(next)
                     },
                     modifier = Modifier.height(42.dp)
                 ) {

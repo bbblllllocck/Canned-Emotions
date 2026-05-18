@@ -35,6 +35,7 @@ object DatabaseVectorStorgeTaskLogic {
 
 		observeJob = scope.launch {
 			DatabaseManager.observeAllMusicTasksFlow().collectLatest { tasks ->
+
 				val toRun = synchronized(processingIds) {
 					val available = this@DatabaseVectorStorgeTaskLogic.maxConcurrent - processingIds.size
 					if (available <= 0) {

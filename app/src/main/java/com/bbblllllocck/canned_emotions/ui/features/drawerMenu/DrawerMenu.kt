@@ -34,6 +34,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.bbblllllocck.canned_emotions.ui.components.BackNavButton
+import com.bbblllllocck.canned_emotions.ui.features.algorithmScreen.AlgorithmScreen
 import com.bbblllllocck.canned_emotions.ui.features.aboutScreen.AboutScreen
 import com.bbblllllocck.canned_emotions.ui.features.apiScreen.APIScreen
 import com.bbblllllocck.canned_emotions.ui.features.databaseScreen.DatabaseScreen
@@ -45,6 +46,7 @@ private data class DrawerDestination(val route: String, val title: String)
 
 private val drawerDestinations = listOf(
     DrawerDestination("startScreen", "开始"),
+    DrawerDestination("algorithm", "算法"),
     DrawerDestination("database", "数据库"),
     DrawerDestination("api", "API"),
     DrawerDestination("scan", "扫描"),
@@ -144,6 +146,7 @@ fun DrawerMenu() {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     composable("startScreen") { StartScreen() }
+                    composable("algorithm") { AlgorithmScreen() }
                     composable("database") { DatabaseScreen() }
                     // Keep route registered for safety, but hide it from drawer UI.
                     composable("player") { ScreenPlaceholder("播放器") }

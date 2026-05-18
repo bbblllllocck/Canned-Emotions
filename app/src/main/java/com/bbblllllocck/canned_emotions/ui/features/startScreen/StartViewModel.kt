@@ -4,13 +4,17 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.bbblllllocck.canned_emotions.core.algorithm.TemplateManager
+import com.bbblllllocck.canned_emotions.core.player.WeightBreakdown
 import com.bbblllllocck.canned_emotions.core.database.geminiRequestCall.EmbeddingCall
 import com.bbblllllocck.canned_emotions.core.database.objectboxFunctions.DatabaseManager
 import com.bbblllllocck.canned_emotions.core.database.objectboxFunctions.MusicScanTaskEntity
+import com.bbblllllocck.canned_emotions.core.player.Playlist
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -25,7 +29,9 @@ data class StartUiState(
     val seedSongs: List<MusicScanTaskEntity> = emptyList(),
     val selectedSeedSong: MusicScanTaskEntity? = null,
     val isSeedPickerVisible: Boolean = false,
-    val seedPickerQuery: String = ""
+    val seedPickerQuery: String = "",
+    val weightBreakdowns: Map<Long, WeightBreakdown> = emptyMap(),
+    val showWeightDetails: Boolean = false
 )
 
 class StartViewModel(
@@ -44,6 +50,15 @@ class StartViewModel(
     )
     val state: StateFlow<StartUiState> = _state.asStateFlow()
 
+    init {
+        refreshFromPlaylist()
+        viewModelScope.launch {
+            TemplateManager.observeWeightDisplayEnabled().collectLatest { enabled ->
+                _state.update { it.copy(showWeightDetails = enabled) }
+            }
+        }
+    }
+
     fun updateInputText(value: String) {
         savedStateHandle[KEY_INPUT_TEXT] = value
         _state.update { it.copy(inputText = value) }
@@ -59,14 +74,30 @@ class StartViewModel(
         _state.update { it.copy(pendingAutoPlayIndex = null) }
     }
 
-    fun setCurrentIndex(index: Int?) {
-        savedStateHandle[KEY_CURRENT_INDEX] = index
-        _state.update { it.copy(currentIndex = index) }
+    fun playPrevious(): MusicScanTaskEntity? {
+        Playlist.playFront()
+        return refreshFromPlaylist()
     }
 
-    fun nextIndexOrNull(): Int? {
-        val next = (_state.value.currentIndex ?: -1) + 1
-        return next.takeIf { it in _state.value.playlist.indices }
+    fun playNext(): MusicScanTaskEntity? {
+        Playlist.playNext()
+        return refreshFromPlaylist()
+    }
+
+    fun autoAdvance(): MusicScanTaskEntity? {
+        Playlist.onAutoAdvance()
+        return refreshFromPlaylist()
+    }
+
+    fun switchToIndex(index: Int): MusicScanTaskEntity? {
+        Playlist.switchToSong(index)
+        return refreshFromPlaylist()
+    }
+
+    fun deleteAtIndex(index: Int) {
+        if (index < 0) return
+        Playlist.delFromList(index)
+        refreshFromPlaylist()
     }
 
     fun openSeedPicker() {
@@ -83,63 +114,36 @@ class StartViewModel(
     }
 
     fun chooseSeedSong(song: MusicScanTaskEntity) {
+        Playlist.selectInitialSong(song.id)
         savedStateHandle[KEY_SELECTED_SEED_ID] = song.id
-        savedStateHandle[KEY_CURRENT_INDEX] = 0
-        _state.update {
-            it.copy(
-                selectedSeedSong = song,
-                playlist = listOf(song),
-                currentIndex = 0,
-                pendingAutoPlayIndex = 0,
-                isSeedPickerVisible = false,
-                seedPickerQuery = ""
-            )
-        }
+        _state.update { it.copy(isSeedPickerVisible = false, seedPickerQuery = "") }
+        refreshFromPlaylist(selectedSeedSong = song)
     }
 
     fun chooseRandomSeedSong() {
-        viewModelScope.launch {
-            val songs = ensureSeedSongsLoaded(force = false)
-            if (songs.isEmpty()) return@launch
-            chooseSeedSong(songs.random())
+        Playlist.randomInitialSong()
+        val seed = Playlist.certainList.firstOrNull()
+        if (seed != null) {
+            savedStateHandle[KEY_SELECTED_SEED_ID] = seed.id
         }
+        refreshFromPlaylist(selectedSeedSong = seed)
     }
 
-    fun startFromSelectedSeed() {
-        val snapshot = _state.value
-        val seed = snapshot.selectedSeedSong ?: return
-        val seedEmbedding = seed.embedding ?: return
-        if (snapshot.isLoading) return
-
+    fun startPlaylist() {
+        val seed = _state.value.selectedSeedSong ?: return
+        if (_state.value.isLoading) return
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
-
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    DatabaseManager.searchTopSimilarByEmbedding(seedEmbedding, limit = SEARCH_LIMIT)
-                }
-            }.onSuccess { incoming ->
-                _state.update { current ->
-                    val rebuilt = buildList {
-                        add(seed)
-                        addAll(incoming)
-                    }.distinctBy { it.filePath }
-
-                    savedStateHandle[KEY_CURRENT_INDEX] = if (rebuilt.isEmpty()) null else 0
-                    current.copy(
-                        playlist = rebuilt,
-                        currentIndex = if (rebuilt.isEmpty()) null else 0,
-                        pendingAutoPlayIndex = null,
-                        isLoading = false
-                    )
-                }
-            }.onFailure {
-                _state.update { it.copy(isLoading = false) }
+            if (Playlist.certainList.isEmpty() || Playlist.certainList.firstOrNull()?.id != seed.id) {
+                Playlist.selectInitialSong(seed.id)
             }
+            Playlist.buildFromSeed()
+            savedStateHandle[KEY_SELECTED_SEED_ID] = seed.id
+            refreshFromPlaylist(pendingAutoPlayIndex = Playlist.currentIndex, selectedSeedSong = seed)
         }
     }
 
-    fun searchAndAppend() {
+    fun searchAndStart() {
         val snapshot = _state.value
         if (snapshot.isLoading || snapshot.mode == SearchMode.ASSIST || snapshot.inputText.isBlank()) return
 
@@ -152,18 +156,13 @@ class StartViewModel(
                     DatabaseManager.searchTopSimilarByEmbedding(vector, limit = SEARCH_LIMIT)
                 }
             }.onSuccess { incoming ->
-                _state.update { current ->
-                    val replaced = incoming.distinctBy { it.filePath }
-                    val nextCurrentIndex = if (replaced.isEmpty()) null else 0
-                    val autoPlayIndex = nextCurrentIndex
-                    savedStateHandle[KEY_CURRENT_INDEX] = nextCurrentIndex
-                    current.copy(
-                        playlist = replaced,
-                        currentIndex = nextCurrentIndex,
-                        pendingAutoPlayIndex = autoPlayIndex,
-                        isLoading = false
-                    )
+                val seed = incoming.firstOrNull()
+                if (seed != null) {
+                    Playlist.selectInitialSong(seed.id)
+                    Playlist.buildFromSeed()
+                    savedStateHandle[KEY_SELECTED_SEED_ID] = seed.id
                 }
+                refreshFromPlaylist(pendingAutoPlayIndex = Playlist.currentIndex, selectedSeedSong = seed)
             }.onFailure {
                 _state.update { it.copy(isLoading = false) }
             }
@@ -186,8 +185,35 @@ class StartViewModel(
         return songs
     }
 
+    private fun refreshFromPlaylist(
+        pendingAutoPlayIndex: Int? = null,
+        selectedSeedSong: MusicScanTaskEntity? = _state.value.selectedSeedSong
+    ): MusicScanTaskEntity? {
+        val playlistSnapshot = buildList {
+            addAll(Playlist.certainList)
+            addAll(Playlist.uncertainList.take(MAX_UNCERTAIN_SHOWN))
+        }
+        val currentSong = Playlist.certainList.getOrNull(Playlist.currentIndex)
+        val currentIndex = playlistSnapshot.indexOfFirst { it.id == currentSong?.id }.takeIf { it >= 0 }
+        val breakdownSnapshot = Playlist.weightBreakdowns.toMap()
+
+        savedStateHandle[KEY_CURRENT_INDEX] = currentIndex
+        _state.update {
+            it.copy(
+                playlist = playlistSnapshot,
+                currentIndex = currentIndex,
+                pendingAutoPlayIndex = pendingAutoPlayIndex,
+                isLoading = false,
+                selectedSeedSong = selectedSeedSong,
+                weightBreakdowns = breakdownSnapshot
+            )
+        }
+        return currentSong
+    }
+
     companion object {
         private const val SEARCH_LIMIT = 80
+        private const val MAX_UNCERTAIN_SHOWN = 50
         private const val KEY_INPUT_TEXT = "start_input_text"
         private const val KEY_MODE = "start_mode"
         private const val KEY_CURRENT_INDEX = "start_current_index"

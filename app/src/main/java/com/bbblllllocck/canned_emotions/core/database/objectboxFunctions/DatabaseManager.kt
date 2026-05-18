@@ -1,11 +1,14 @@
 package com.bbblllllocck.canned_emotions.core.database.objectboxFunctions
 
 import android.content.Context
+import com.bbblllllocck.canned_emotions.core.algorithm.TemplateManager
 import io.objectbox.Box
 import io.objectbox.BoxStore
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlin.math.exp
+import kotlin.math.ln
 
 object DatabaseManager {
     lateinit var store: BoxStore
@@ -88,7 +91,6 @@ object DatabaseManager {
         return query.use { it.find() }
     }
 
-
     //AI generated below
     fun listVectorReadySongs(): List<MusicScanTaskEntity> {
         val query = musicTaskBox().query().build()
@@ -105,5 +107,42 @@ object DatabaseManager {
         }
     }
 
+    fun updateIntegratedParameter(songId: Long) {
+        val box = musicTaskBox()
+        val entity = box.get(songId) ?: return
+        val template = TemplateManager.getUsingTemplate() ?: return
+
+        val now = System.currentTimeMillis()
+        val lastPlayed = entity.lastPlayedDate
+        var value = entity.integratedTimeParameter
+
+        if (lastPlayed > 0L && template.integratedParameterHalfLife > 0) {
+            val days = (now - lastPlayed).toFloat() / (24f * 60f * 60f * 1000f)
+            val decay = exp(ln(0.5f) * (days / template.integratedParameterHalfLife))
+            value *= decay
+        }
+
+        value += template.integratedParameterWeight
+        entity.integratedTimeParameter = value
+        entity.lastPlayedDate = now
+        entity.updatedAtMillis = now
+        box.put(entity)
+    }
+
+    fun scaleIntegratedParameters(ratio: Float) {
+        if (ratio.isNaN() || ratio.isInfinite()) return
+        if (ratio == 1f) return
+
+        val box = musicTaskBox()
+        val items = box.all
+        if (items.isEmpty()) return
+
+        items.forEach { item ->
+            item.integratedTimeParameter *= ratio
+            item.updatedAtMillis = System.currentTimeMillis()
+        }
+
+        box.put(items)
+    }
 
 }

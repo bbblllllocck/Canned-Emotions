@@ -14,6 +14,36 @@ object FileScanner {
         "mp3", "flac", "wav", "m4a", "aac", "ogg", "opus"
     )
 
+    private fun resolveMusicType(title: String, fileName: String, lyrics: String?): Int {
+        if (title.contains("（伴奏）") || fileName.contains("（伴奏）")) {
+            return 0
+        }
+        if (title.lowercase().contains("(instrumental)") || fileName.lowercase().contains("(instrumental)")) {
+            return 0
+        }
+        if (lyrics?.contains("纯音乐，请欣赏") == true) {
+            return 0
+        }
+        val lineCount = lyrics
+            .orEmpty()
+            .lineSequence()
+            .count { it.isNotBlank() }
+        return if (lineCount < 8) {
+            0
+        } else {
+            1
+        }
+    }
+
+    private fun extractLyrics(retriever: MediaMetadataRetriever): String? {
+        val key = runCatching {
+            MediaMetadataRetriever::class.java.getField("METADATA_KEY_LYRICS").getInt(null)
+        }.getOrNull() ?: runCatching {
+            MediaMetadataRetriever::class.java.getField("METADATA_KEY_LYRIC").getInt(null)
+        }.getOrNull() ?: return null
+        return runCatching { retriever.extractMetadata(key) }.getOrNull()
+    }
+
     private fun toTaskEntity(file: File): MusicScanTaskEntity {
         val retriever = MediaMetadataRetriever()
         return try {
@@ -24,6 +54,7 @@ object FileScanner {
                 ?: file.nameWithoutExtension
             val album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM).orEmpty()
             val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST).orEmpty()
+            val lyrics = extractLyrics(retriever)
             val now = System.currentTimeMillis()
 
             MusicScanTaskEntity(
@@ -31,6 +62,7 @@ object FileScanner {
                 title = title,
                 album = album,
                 artist = artist,
+                musicType = resolveMusicType(title, file.name, lyrics),
                 updatedAtMillis = now
             )
         } finally {
@@ -52,6 +84,7 @@ object FileScanner {
                 ?: fallbackName
             val album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM).orEmpty()
             val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST).orEmpty()
+            val lyrics = extractLyrics(retriever)
             val now = System.currentTimeMillis()
 
             MusicScanTaskEntity(
@@ -60,6 +93,7 @@ object FileScanner {
                 title = title,
                 album = album,
                 artist = artist,
+                musicType = resolveMusicType(title, file.name.orEmpty(), lyrics),
                 updatedAtMillis = now
             )
         } finally {

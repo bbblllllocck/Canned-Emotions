@@ -5,7 +5,7 @@
   "entities": [
     {
       "id": "1:6539866670427344341",
-      "lastPropertyId": "12:1850833757735834890",
+      "lastPropertyId": "16:8425530438012802173",
       "name": "MusicScanTaskEntity",
       "properties": [
         {
@@ -57,6 +57,26 @@
           "indexId": "3:7377078746284871609",
           "type": 28,
           "flags": 8
+        },
+        {
+          "id": "13:5774400865180247242",
+          "name": "musicType",
+          "type": 5
+        },
+        {
+          "id": "14:4276614300523737450",
+          "name": "durationMs",
+          "type": 6
+        },
+        {
+          "id": "15:1120171376711392966",
+          "name": "lastPlayedDate",
+          "type": 6
+        },
+        {
+          "id": "16:8425530438012802173",
+          "name": "integratedTimeParameter",
+          "type": 7
         }
       ],
       "relations": []
