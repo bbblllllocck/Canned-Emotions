@@ -24,6 +24,8 @@ data class StartUiState(
     val isLoading: Boolean = false,
     val mode: SearchMode = SearchMode.SYMMETRIC,
     val playlist: List<MusicScanTaskEntity> = emptyList(),
+    val certainList: List<MusicScanTaskEntity> = emptyList(),
+    val uncertainList: List<MusicScanTaskEntity> = emptyList(),
     val currentIndex: Int? = null,
     val pendingAutoPlayIndex: Int? = null,
     val seedSongs: List<MusicScanTaskEntity> = emptyList(),
@@ -31,7 +33,8 @@ data class StartUiState(
     val isSeedPickerVisible: Boolean = false,
     val seedPickerQuery: String = "",
     val weightBreakdowns: Map<Long, WeightBreakdown> = emptyMap(),
-    val showWeightDetails: Boolean = false
+    val showWeightDetails: Boolean = false,
+    val certainBufferSize: Int = 0
 )
 
 class StartViewModel(
@@ -97,6 +100,23 @@ class StartViewModel(
     fun deleteAtIndex(index: Int) {
         if (index < 0) return
         Playlist.delFromList(index)
+        refreshFromPlaylist()
+    }
+
+    fun deleteById(songId: Long) {
+        val certainIndex = Playlist.certainList.indexOfFirst { it.id == songId }
+        if (certainIndex >= 0) {
+            deleteAtIndex(certainIndex)
+            return
+        }
+        val uncertainIndex = Playlist.uncertainList.indexOfFirst { it.id == songId }
+        if (uncertainIndex >= 0) {
+            deleteAtIndex(Playlist.certainList.size + uncertainIndex)
+        }
+    }
+
+    fun updateBufferSize(size: Int) {
+        Playlist.updateBufferSize(size)
         refreshFromPlaylist()
     }
 
@@ -189,23 +209,32 @@ class StartViewModel(
         pendingAutoPlayIndex: Int? = null,
         selectedSeedSong: MusicScanTaskEntity? = _state.value.selectedSeedSong
     ): MusicScanTaskEntity? {
+        val certainSnapshot = Playlist.certainList.toList()
+        val uncertainSnapshot = Playlist.uncertainList.take(MAX_UNCERTAIN_SHOWN)
         val playlistSnapshot = buildList {
-            addAll(Playlist.certainList)
-            addAll(Playlist.uncertainList.take(MAX_UNCERTAIN_SHOWN))
+            addAll(certainSnapshot)
+            addAll(uncertainSnapshot)
         }
-        val currentSong = Playlist.certainList.getOrNull(Playlist.currentIndex)
-        val currentIndex = playlistSnapshot.indexOfFirst { it.id == currentSong?.id }.takeIf { it >= 0 }
+        val currentSong = certainSnapshot.getOrNull(Playlist.currentIndex)
+        val currentIndex = if (certainSnapshot.isNotEmpty()) {
+            Playlist.currentIndex.coerceAtLeast(0)
+        } else {
+            null
+        }
         val breakdownSnapshot = Playlist.weightBreakdowns.toMap()
 
         savedStateHandle[KEY_CURRENT_INDEX] = currentIndex
         _state.update {
             it.copy(
                 playlist = playlistSnapshot,
+                certainList = certainSnapshot,
+                uncertainList = uncertainSnapshot,
                 currentIndex = currentIndex,
                 pendingAutoPlayIndex = pendingAutoPlayIndex,
                 isLoading = false,
                 selectedSeedSong = selectedSeedSong,
-                weightBreakdowns = breakdownSnapshot
+                weightBreakdowns = breakdownSnapshot,
+                certainBufferSize = Playlist.certainBufferSize
             )
         }
         return currentSong
@@ -220,5 +249,4 @@ class StartViewModel(
         private const val KEY_SELECTED_SEED_ID = "start_selected_seed_id"
     }
 }
-
 

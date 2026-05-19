@@ -77,6 +77,7 @@ dependencies {
     implementation(libs.tink.android)
     implementation(libs.google.genai)
     implementation(libs.androidx.media3.transformer)
+    implementation(libs.jaudiotagger)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

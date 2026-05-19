@@ -116,6 +116,13 @@ object Playlist {
         ensureBuffer()
     }
 
+    fun updateBufferSize(newSize: Int) {
+        val clamped = newSize.coerceAtLeast(0)
+        if (clamped == certainBufferSize) return
+        certainBufferSize = clamped
+        rebalanceBuffer(allowRebuild = false)
+    }
+
     fun rebuild() {
         // 这个函数的作用是如果Activity被杀uncertainList的长度不足，用这玩意生成后续
         // uncertainList最多取前50，certainList，session参数和deletedSongs作为参数传给algorithm的那个函数rebuild
@@ -171,6 +178,10 @@ object Playlist {
             addPunishmentWeight(currentSong, 1f, currentIndex)
         }
 
+        if (shouldApplySwitchPunishment()) {
+            recalculateUncertainList()
+        }
+
         currentIndex += 1
         if (currentIndex >= certainList.size && uncertainList.isNotEmpty()) {
             certainList.add(uncertainList.removeAt(0))
@@ -186,9 +197,7 @@ object Playlist {
         }
 
         ensureBuffer()
-        if (shouldApplySwitchPunishment()) {
-            recalculateUncertainList()
-        }
+
     }
 
     //暂停和拖进度条就直接让UI和播放器沟通吧
@@ -269,12 +278,20 @@ object Playlist {
 
 
     private fun ensureBuffer() {
+        rebalanceBuffer(allowRebuild = true)
+    }
+
+    private fun rebalanceBuffer(allowRebuild: Boolean) {
         val targetSize = (currentIndex + certainBufferSize + 1).coerceAtLeast(0)
         while (certainList.size < targetSize && uncertainList.isNotEmpty()) {
             certainList.add(uncertainList.removeAt(0))
         }
+        while (certainList.size > targetSize && certainList.size > currentIndex + 1) {
+            val moved = certainList.removeAt(certainList.lastIndex)
+            uncertainList.add(0, moved)
+        }
 
-        if (uncertainList.size <= 50) {
+        if (allowRebuild && uncertainList.size <= 50) {
             rebuild()
         }
     }

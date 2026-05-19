@@ -17,6 +17,7 @@ datastorePreferences = "1.2.1"
 tinkAndroid = "1.21.0"
 objectbox = "5.4.1"
 googleGenai = "1.46.0"
+jaudiotagger = "2.0.1"
 
 
 [libraries]
@@ -45,6 +46,7 @@ tink-android = { group = "com.google.crypto.tink", name = "tink-android", versio
 objectbox-android = { group = "io.objectbox", name = "objectbox-android", version.ref = "objectbox" }
 objectbox-kotlin = { group = "io.objectbox", name = "objectbox-kotlin", version.ref = "objectbox" }
 google-genai = { group = "com.google.genai", name = "google-genai", version.ref = "googleGenai" }
+jaudiotagger = { group = "org.jaudiotagger", name = "jaudiotagger", version.ref = "jaudiotagger" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

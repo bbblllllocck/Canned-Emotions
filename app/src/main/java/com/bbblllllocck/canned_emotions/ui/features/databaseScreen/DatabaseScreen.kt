@@ -150,6 +150,14 @@ private fun TaskItem(task: MusicScanTaskEntity) {
 				text = statusLabel(task.status),
 				style = MaterialTheme.typography.labelSmall
 			)
+			Text(
+				text = musicTypeLabel(task.musicType),
+				style = MaterialTheme.typography.labelSmall
+			)
+			Text(
+				text = integratedParameterLabel(task.integratedTimeParameter),
+				style = MaterialTheme.typography.labelSmall
+			)
 		}
 	}
 }
@@ -162,3 +170,20 @@ private fun statusLabel(status: Int): String {
 		else -> "状态: UNKNOWN($status)"
 	}
 }
+
+private fun musicTypeLabel(musicType: Int): String {
+	return when (musicType) {
+		0 -> "类型: 纯音乐"
+		1 -> "类型: 单曲"
+		else -> "类型: 未知"
+	}
+}
+
+private fun integratedParameterLabel(value: Float): String {
+	return if (value < 0f) {
+		"综合参数: 未设置"
+	} else {
+		"综合参数: ${"%.3f".format(value)}"
+	}
+}
+
