@@ -143,11 +143,11 @@ class Algorithm {
             return similarity - integrated
         }
 
-        fun applyWeightsFromSong(song: MusicScanTaskEntity) {
+        fun applyWeightsFromSong(song: MusicScanTaskEntity) {//checked
             val duration = song.durationMs.toFloat()
             timeTillNow += duration
 
-            if (lastChosen != null && lastChosen?.artist != song.artist) {
+            if (lastChosen == null || lastChosen?.artist != song.artist) {
                 val existing = artistDuplicateWeights[song.artist]
                 artistDuplicateWeights[song.artist] = if (existing != null && existing < 0f) {
                     artistPardonFloor
@@ -156,7 +156,7 @@ class Algorithm {
                 }
             }
 
-            if (lastChosen != null && lastChosen?.album != song.album) {
+            if (lastChosen == null || lastChosen?.album != song.album) {
                 val existing = albumDuplicateWeights[song.album]
                 albumDuplicateWeights[song.album] = if (existing != null && existing < 0f) {
                     albumPardonFloor
@@ -193,16 +193,16 @@ class Algorithm {
                 }
             }
 
-            if (song.musicType == 0) {
+            if (song.musicType == 0) {//score -=this*系数
                 songTypeWeight["PureMusic"] =
-                    (songTypeWeight["PureMusic"] ?: 0f) + (1 - usingTemplate.songProportion) * duration
+                    (songTypeWeight["PureMusic"] ?: 0f) + usingTemplate.songProportion * duration / usingTemplate.tolerance
                 songTypeWeight["Song"] =
-                    (songTypeWeight["Song"] ?: 0f) - usingTemplate.songProportion * duration
+                    (songTypeWeight["Song"] ?: 0f) - usingTemplate.songProportion * duration / usingTemplate.tolerance
             } else if (song.musicType == 1) {
                 songTypeWeight["Song"] =
-                    (songTypeWeight["Song"] ?: 0f) + usingTemplate.songProportion * duration
+                    (songTypeWeight["Song"] ?: 0f) + (1 - usingTemplate.songProportion) * duration / usingTemplate.tolerance
                 songTypeWeight["PureMusic"] =
-                    (songTypeWeight["PureMusic"] ?: 0f) - (1 - usingTemplate.songProportion) * duration
+                    (songTypeWeight["PureMusic"] ?: 0f) - (1 - usingTemplate.songProportion) * duration / usingTemplate.tolerance
             }
 
             lastChosen = song
@@ -335,7 +335,7 @@ class Algorithm {
 
                 applyWeightsFromSong(chosen)
 
-                val state = getIntegratedState(chosen)
+                val state = getIntegratedState(chosen)//你这simulate了个几把
                 val decayed = decayedIntegrated(chosen, nowLoop)
                 state.integratedTimeParameter = decayed + usingTemplate.integratedParameterWeight
                 state.lastPlayedDate = nowLoop
@@ -349,6 +349,8 @@ class Algorithm {
             val breakdowns = buildBreakdownsForDisplay(seedEmbedding, displayItems, sessionParameters, usingTemplate)
             return AlgorithmResult(result, breakdowns)
         }
+
+        /////////template=0 检查终了
 
         if (usingTemplate.roamingType == 1) {
             val seed = certainList.firstOrNull() ?: return AlgorithmResult.empty()
