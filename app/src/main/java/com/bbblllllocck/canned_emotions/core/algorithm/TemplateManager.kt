@@ -28,7 +28,7 @@ data class Template(
 
 
     //时间&次数综合推荐参数
-    var integratedParameterWeight: Float = 0.2f,//（0到1，1表示听1次后相关权重就-30%，0.5就是听2次）
+    var integratedParameterWeight: Float = 0.2f,//（0到1，1表示听1次后相关权重就COEFFICIENT_OF_UNRELATED，0.5就是听2次）
     var integratedParameterHalfLife: Int = 30,//（天）
     //UI上表示为：一首歌被推荐x次后就不大可能被推荐，x天后衰减一半。
 
@@ -45,7 +45,7 @@ data class Template(
 
 
     //温度
-    var temperature: Float = 0.7f,// 温度，不过我不太知道它具体怎么工作，反之得给playlist来一点随机性
+    var temperature: Float = 0.1f,// 温度，不过我不太知道它具体怎么工作，反之得给playlist来一点随机性
 
     //惩罚向量
     var punishmentVectorFadeTime: Int = 300000,//（ms，惩罚向量在此时间内平滑衰减）

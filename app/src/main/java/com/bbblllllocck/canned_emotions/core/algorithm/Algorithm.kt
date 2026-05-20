@@ -1,5 +1,6 @@
 package com.bbblllllocck.canned_emotions.core.algorithm
 
+import android.util.Log
 import com.bbblllllocck.canned_emotions.core.player.SessionParameters
 import com.bbblllllocck.canned_emotions.core.player.WeightBreakdown
 import com.bbblllllocck.canned_emotions.core.database.objectboxFunctions.DatabaseManager
@@ -48,7 +49,7 @@ class Algorithm {
             val duration = song.durationMs.toFloat()
             timeTillNow += duration
 
-            if (previous != null && previous.artist != song.artist) {
+            if (previous == null || previous.artist != song.artist) {
                 val existing = artistDuplicateWeights[song.artist]
                 artistDuplicateWeights[song.artist] = if (existing != null && existing < 0f) {
                     artistPardonFloor
@@ -57,7 +58,7 @@ class Algorithm {
                 }
             }
 
-            if (previous != null && previous.album != song.album) {
+            if (previous == null || previous.album != song.album) {
                 val existing = albumDuplicateWeights[song.album]
                 albumDuplicateWeights[song.album] = if (existing != null && existing < 0f) {
                     albumPardonFloor
@@ -94,16 +95,16 @@ class Algorithm {
                 }
             }
 
-            if (song.musicType == 0) {
+            if (song.musicType == 0) {//score -=this*系数
                 songTypeWeight["PureMusic"] =
-                    (songTypeWeight["PureMusic"] ?: 0f) + (1 - usingTemplate.songProportion) * duration
+                    (songTypeWeight["PureMusic"] ?: 0f) + usingTemplate.songProportion * duration / usingTemplate.tolerance
                 songTypeWeight["Song"] =
-                    (songTypeWeight["Song"] ?: 0f) - usingTemplate.songProportion * duration
+                    (songTypeWeight["Song"] ?: 0f) - usingTemplate.songProportion * duration / usingTemplate.tolerance
             } else if (song.musicType == 1) {
                 songTypeWeight["Song"] =
-                    (songTypeWeight["Song"] ?: 0f) + usingTemplate.songProportion * duration
+                    (songTypeWeight["Song"] ?: 0f) + (1 - usingTemplate.songProportion) * duration / usingTemplate.tolerance
                 songTypeWeight["PureMusic"] =
-                    (songTypeWeight["PureMusic"] ?: 0f) - (1 - usingTemplate.songProportion) * duration
+                    (songTypeWeight["PureMusic"] ?: 0f) - (1 - usingTemplate.songProportion) * duration / usingTemplate.tolerance
             }
 
             
@@ -131,13 +132,14 @@ class Algorithm {
             }
             val days = (now - lastPlayed).toFloat() / (24f * 60f * 60f * 1000f)
             val decay = exp(ln(0.5f) * (days / usingTemplate.integratedParameterHalfLife))
-            return state.integratedTimeParameter * decay
+            return state.integratedTimeParameter * decay * usingTemplate.COEFFICIENT_OF_UNRELATED
         }
 
         fun baseScore(queryEmbedding: FloatArray, song: MusicScanTaskEntity, now: Long): Float {
             val embedding = song.embedding ?: return 0f
             val similarity = cosineSimilarity(queryEmbedding, embedding)
             val integrated = decayedIntegrated(song, now)
+            Log.d("baseScore","歌：${song.title}，原始相似度${similarity}，integrated参数${integrated}，最终得分${similarity - integrated}")
             return similarity - integrated
         }
 
@@ -206,7 +208,7 @@ class Algorithm {
             lastChosen = song
         }
 
-        fun adjustedScore(base: Float, song: MusicScanTaskEntity, elapsedMs: Long): Float {
+        fun adjustedScore(base: Float, song: MusicScanTaskEntity, elapsedMs: Long): Float {//checked
             var score = base
 
             val artistWeight = artistDuplicateWeights[song.artist] ?: 0f
@@ -308,12 +310,13 @@ class Algorithm {
                 .filter { it.id !in baseExcludedIds }
             val now = System.currentTimeMillis()
 
-            val topCandidates = similarSongs
+            val topCandidates = similarSongs//integratedSimulated有他妈什么用我请问了？？？？？？
                 .map { song -> ScoreEntry(song, baseScore(seedEmbedding, song, now)) }
                 .sortedByDescending { it.score }
                 .take(2000)
                 .toMutableList()
 
+            //ALL CHECKED UP TILL HERE
             val result = mutableListOf<MusicScanTaskEntity>()
 
             while (result.size < 80 && topCandidates.isNotEmpty()) {
@@ -437,18 +440,13 @@ class Algorithm {
     private fun cosineSimilarity(a: FloatArray, b: FloatArray): Float {
         val size = minOf(a.size, b.size)
         if (size == 0) return 0f
+
         var dot = 0f
-        var normA = 0f
-        var normB = 0f
         for (i in 0 until size) {
-            val av = a[i]
-            val bv = b[i]
-            dot += av * bv
-            normA += av * av
-            normB += bv * bv
+            dot += a[i] * b[i]
         }
-        val denom = kotlin.math.sqrt(normA) * kotlin.math.sqrt(normB)
-        return if (denom == 0f) 0f else dot / denom
+        // 既然 Gemini Embedding 2 已经做过 L2 归一化，直接返回内积即可
+        return dot
     }
 
     private fun subtractVectors(a: FloatArray, b: FloatArray): FloatArray {
