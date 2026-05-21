@@ -208,7 +208,7 @@ class Algorithm {
             lastChosen = song
         }
 
-        fun adjustedScore(base: Float, song: MusicScanTaskEntity, elapsedMs: Long): Float {//checked
+        fun adjustedScore(base: Float, song: MusicScanTaskEntity, elapsedMs: Long): Float {//checked？
             var score = base
 
             val artistWeight = artistDuplicateWeights[song.artist] ?: 0f
@@ -228,9 +228,9 @@ class Algorithm {
             }
             if (typeKey != null) {
                 val typeWeight = songTypeWeight[typeKey] ?: 0f
-                if (typeWeight > 0f) {//这里不知道如果小于零要不要反过来加回去，感觉都行，再说吧
-                    score -= typeWeight * usingTemplate.COEFFICIENT_OF_UNRELATED
-                }
+
+                score -= typeWeight * usingTemplate.COEFFICIENT_OF_UNRELATED
+
             }
 
             val fade = usingTemplate.punishmentVectorFadeTime
