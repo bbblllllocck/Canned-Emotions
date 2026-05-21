@@ -238,9 +238,9 @@ class Algorithm {
                 for ((time, weightsBySong) in sessionParameters.punishmentWeights) {
                     val weight = weightsBySong[song.id] ?: continue
                     val age = elapsedMs - time
-                    if (age <= fade) {
+                    if (age in 0..fade) {
                         val decay = 1f - (age.toFloat() / fade.toFloat())
-                        score -= weight * decay * usingTemplate.punishmentVectorWeight
+                        score -= weight * decay * usingTemplate.punishmentVectorWeight * usingTemplate.COEFFICIENT_OF_UNRELATED
                     }
                 }
             }

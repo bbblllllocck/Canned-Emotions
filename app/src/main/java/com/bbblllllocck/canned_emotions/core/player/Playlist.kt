@@ -58,25 +58,7 @@ object Playlist {
     //如果uncertainList里面的歌小于或大于50首，触发rebuildFromCertainList()
 
 
-    suspend fun initWith1Song() {
-        //对应UI的开始按钮
-        // 那这里又有一个问题了，那个利用嵌入模型的“检索”怎么办？直接让UI给embed发请求，然后用那个向量找到最近似的歌。数据库管理器有这个吗？
-        // 没有也无所谓，反正要新增好多东西
-        // 只将certainList作为参数传给algorithm的那个函数。
-        // 把返回的列表赋给uncertainList。
-        val songs = DatabaseManager.listVectorReadySongs()
-        val seed = songs.randomOrNull() ?: return
 
-        certainList.clear()
-        uncertainList.clear()
-        deletedSongs.clear()
-        weightBreakdowns.clear()
-        sessionParameters.reset()
-
-        certainList.add(seed)
-        currentIndex = 0
-        buildFromSeed()
-    }
 
     //方法相关
 
@@ -93,6 +75,7 @@ object Playlist {
 
         certainList.add(seed)
         currentIndex = 0
+        //播放器播放
     }
 
     fun randomInitialSong() {
@@ -108,6 +91,7 @@ object Playlist {
 
         certainList.add(seed)
         currentIndex = 0
+        //播放
     }
 
     fun buildFromSeed() {
@@ -304,15 +288,18 @@ object Playlist {
         val sourceEmbedding = sourceSong.embedding ?: return
         val allSongs = DatabaseManager.listVectorReadySongs()
         if (allSongs.isEmpty()) return
+        val timeKey = totalDurationBefore(timeIndex)
 
-        val weights = mutableMapOf<Long, Float>()
+        // 关键点：获取或初始化该时间点的惩罚权重 Map 引用
+        val weights = sessionParameters.punishmentWeights.getOrPut(timeKey) { mutableMapOf() }
+
         for (song in allSongs) {
             val embedding = song.embedding ?: continue
-            weights[song.id] = cosineSimilarity(sourceEmbedding, embedding) * scale
+            val similarity = cosineSimilarity(sourceEmbedding, embedding)
+            val currentWeight = weights[song.id] ?: 0f
+            // 直接修改 weights 引用对应的 Map 内容
+            weights[song.id] = currentWeight + similarity * scale
         }
-
-        val timeKey = totalDurationBefore(timeIndex)
-        sessionParameters.punishmentWeights[timeKey] = weights
     }
 
     private fun totalDurationBefore(index: Int): Long {
@@ -328,18 +315,13 @@ object Playlist {
     private fun cosineSimilarity(a: FloatArray, b: FloatArray): Float {
         val size = minOf(a.size, b.size)
         if (size == 0) return 0f
+
         var dot = 0f
-        var normA = 0f
-        var normB = 0f
         for (i in 0 until size) {
-            val av = a[i]
-            val bv = b[i]
-            dot += av * bv
-            normA += av * av
-            normB += bv * bv
+            dot += a[i] * b[i]
         }
-        val denom = sqrt(normA) * sqrt(normB)
-        return if (denom == 0f) 0f else dot / denom
+        // 既然 Gemini Embedding 2 已经做过 L2 归一化，直接返回内积即可
+        return dot
     }
 
     private fun shouldApplySwitchPunishment(): Boolean {
