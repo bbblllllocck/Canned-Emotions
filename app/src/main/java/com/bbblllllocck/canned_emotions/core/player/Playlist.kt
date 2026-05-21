@@ -50,6 +50,8 @@ object Playlist {
 
     //以上参数都要做持久化储存防止activity被杀
 
+    var usingTemplate= TemplateManager.getUsingTemplate()
+
 
 
     //列表长度监听/控制。
@@ -159,7 +161,7 @@ object Playlist {
         // 触发一次recalculateUncertainList()，因为session参数变了。
         val currentSong = certainList.getOrNull(currentIndex) ?: return
         if (shouldApplySwitchPunishment()) {
-            addPunishmentWeight(currentSong, 1f, currentIndex)
+            addPunishmentWeight(currentSong, usingTemplate?.punishmentVectorWeight ?: 0.15f, currentIndex)
         }
 
         if (shouldApplySwitchPunishment()) {
@@ -211,7 +213,8 @@ object Playlist {
         // 触发一次recalculateUncertainList()，因为session参数变了。
         val currentSong = certainList.getOrNull(currentIndex) ?: return
         if (shouldApplySwitchPunishment()) {
-            addPunishmentWeight(currentSong, 0.5f, currentIndex)
+            addPunishmentWeight(currentSong,
+                usingTemplate?.punishmentVectorWeightWhenSwitch ?: 0.075f, currentIndex)
         }
 
         if (targetIndex < certainList.size) {
@@ -251,7 +254,7 @@ object Playlist {
             val removed = uncertainList.getOrNull(uncertainIndex) ?: return
             uncertainList.removeAt(uncertainIndex)
             deletedSongs.add(removed)
-            addPunishmentWeight(removed, 1f, currentIndex)
+            addPunishmentWeight(removed, usingTemplate?.punishmentVectorWeightWhenSwitch ?: 0.075f, currentIndex)
         }
 
         ensureBuffer()
@@ -295,7 +298,7 @@ object Playlist {
 
         for (song in allSongs) {
             val embedding = song.embedding ?: continue
-            val similarity = cosineSimilarity(sourceEmbedding, embedding)
+            val similarity = kotlin.math.max(0f, cosineSimilarity(sourceEmbedding, embedding) - 0.6f)
             val currentWeight = weights[song.id] ?: 0f
             // 直接修改 weights 引用对应的 Map 内容
             weights[song.id] = currentWeight + similarity * scale

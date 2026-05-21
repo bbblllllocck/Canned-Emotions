@@ -23,19 +23,19 @@ data class Template(
     var name: String,
 
     //定义极大影响相关性系数，认为被该参数完整影响时会使结果和起始点完全不相关。
-    var COEFFICIENT_OF_UNRELATED : Float = 0.3f,
+    var COEFFICIENT_OF_UNRELATED : Float = 0.15f,
     //归根结底，对于相似度的定义是关键的。也许是30%？
 
 
     //时间&次数综合推荐参数
     var integratedParameterWeight: Float = 0.2f,//（0到1，1表示听1次后相关权重就COEFFICIENT_OF_UNRELATED，0.5就是听2次）
-    var integratedParameterHalfLife: Int = 30,//（天）
+    var integratedParameterHalfLife: Int = 15,//（天）
     //UI上表示为：一首歌被推荐x次后就不大可能被推荐，x天后衰减一半。
 
     //专辑&艺术家查重系数
-    var artistDuplicateCoefficient: Float = 0.0000025f,//（0到1，0就是关，1就是一个艺术家听一ms后权重也直接减一个不相关系数，0.5两次，此项不包含赦免时间）
+    var artistDuplicateCoefficient: Float = 0.00000138f,//（0到1，0就是关，1就是一个艺术家听一ms后权重也直接减一个不相关系数，0.5两次，此项不包含赦免时间）
     var artistDuplicateFadeTime: Int = 1200000,//（ms，和上面那个参数配合使用的，查重系数均匀递减，或者别的什么，到时候看我用什么数学公式吧。那么它和（赦免时间与赦免时间加1/artistDuplicateCoefficientPerMinute）的平均值的比值就可以表示为——听了几个艺术家后你会想听原来的？不过太不直观了，还是按时间计吧）
-    var artistPardonTime: Int = 600000,//（ms，艺术家赦免时间，这个时间内的听歌记录不计入查重惩罚的计算）
+    var artistPardonTime: Int = 420000,//（ms，艺术家赦免时间，这个时间内的听歌记录不计入查重惩罚的计算）
     //那么在UI上我希望是：在xx时间（赦免）到xx时间（查重）内被允许播放同一个艺术家的歌，xx时间（消逝）后完全清除，然后这仨最好在一个窗口里面设置，为一组。
 
     //和上面一样
@@ -45,12 +45,12 @@ data class Template(
 
 
     //温度
-    var temperature: Float = 0.1f,// 温度，不过我不太知道它具体怎么工作，反之得给playlist来一点随机性
+    var temperature: Float = 0.012f,// 温度，不过我不太知道它具体怎么工作，反之得给playlist来一点随机性
 
     //惩罚向量
-    var punishmentVectorFadeTime: Int = 300000,//（ms，惩罚向量在此时间内平滑衰减）
-    var punishmentVectorWeight: Float = 0.15f,//（0-1，惩罚向量的权重，为1时会极大影响结果，-30%，0为关）
-    var punishmentVectorWeightWhenSwitch: Float = 0.3f,//（0-1，直接在播放列表里面换别的歌时惩罚向量的权重，当然如果是同一首可不能触发这个）
+    var punishmentVectorFadeTime: Int = 900000,//（ms，惩罚向量在此时间内平滑衰减）
+    var punishmentVectorWeight: Float = 0.175f,//（0-1，惩罚向量的权重，为1时会极大影响结果，-30%，0为关）
+    var punishmentVectorWeightWhenSwitch: Float = 0.0875f,//（0-1，直接在播放列表里面换别的歌时惩罚向量的权重，当然如果是同一首可不能触发这个）
     //在UI上表现为，如果手动换歌会触发
 
     //单曲比例

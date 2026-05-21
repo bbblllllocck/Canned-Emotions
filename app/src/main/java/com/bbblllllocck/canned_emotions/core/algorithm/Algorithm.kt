@@ -240,7 +240,7 @@ class Algorithm {
                     val age = elapsedMs - time
                     if (age in 0..fade) {
                         val decay = 1f - (age.toFloat() / fade.toFloat())
-                        score -= weight * decay * usingTemplate.punishmentVectorWeight * usingTemplate.COEFFICIENT_OF_UNRELATED
+                        score -= weight * decay //* usingTemplate.punishmentVectorWeight * usingTemplate.COEFFICIENT_OF_UNRELATED
                     }
                 }
             }
@@ -360,14 +360,14 @@ class Algorithm {
             val excludedIds = baseExcludedIds.toMutableSet()
 
             if (sessionParameters.lineageRoamingDirection == null) {
-                val firstCandidates = DatabaseManager.searchTopSimilarByEmbedding(seedEmbedding, limit = 300)
+                val firstCandidates = DatabaseManager.searchTopSimilarByEmbedding(seedEmbedding, limit = 2000)
                     .filter { it.embedding != null }
                     .filter { it.id !in excludedIds }
                 val now = System.currentTimeMillis()
                 val best = firstCandidates
                     .map { song -> ScoreEntry(song, baseScore(seedEmbedding, song, now)) }
                     .maxByOrNull { it.score }
-                    ?.song
+                    ?.song//这里不得SoftMax一下？
 
                 val bestEmbedding = best?.embedding
                 if (best != null && bestEmbedding != null) {
@@ -469,14 +469,23 @@ class Algorithm {
         initialRegressionWeight: Float,
         directionRatio: Float
     ): FloatArray? {
-        if (regressionLength <= 0f) return null
+        val t: Float
+        val centerWeight: Float
+        if (regressionLength <= 0f) {
+            // 物理意义：漫游长度为 0，意味着飞船瞬间摆脱了母星（Seed Song）的引力
+            // 进度直接拉满到 100%，母星引力强制归零
+            t = 1f
+            centerWeight = 0f
+        } else {
+            // 物理意义：正常航行，引力随着时间线性衰减
+            t = (timeTillNow / regressionLength).coerceIn(0f, 1f)
+            centerWeight = (initialRegressionWeight * (1f - t)).coerceAtLeast(0f)
+        }
 
-        val t = (timeTillNow / regressionLength).coerceIn(0f, 1f)
-        val centerWeight = (initialRegressionWeight * (1f - t)).coerceAtLeast(0f)
-        val directionWeight = t
+
 
         val size = minOf(seedEmbedding.size, lastEmbedding.size, direction.size)
-        if (size == 0) return null
+        if (size == 0) return null//冗余逻辑，不过留着也行
 
         val out = FloatArray(size)
         val directionComponentWeight = directionRatio
@@ -484,9 +493,20 @@ class Algorithm {
 
         for (i in 0 until size) {
             val centerComponent = seedEmbedding[i] * centerWeight
-            val directionComponent = (direction[i] * directionComponentWeight) + (lastEmbedding[i] * lastComponentWeight)
-            out[i] = centerComponent + directionComponent * directionWeight
+            val directionComponent = ((direction[i] * directionComponentWeight) + (lastEmbedding[i] * lastComponentWeight))*(1f-centerWeight)
+            out[i] = centerComponent + directionComponent
         }
+        var sumOfSquares = 0f
+        for (i in 0 until size) {
+            sumOfSquares += out[i] * out[i]
+        }
+        val norm = kotlin.math.sqrt(sumOfSquares)
+        if (norm > 0f) {
+            for (i in 0 until size) {
+                out[i] /= norm
+            }
+        }
+
         return out
     }
 
