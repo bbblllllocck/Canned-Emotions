@@ -160,6 +160,7 @@ object Playlist {
         // 这个函数的作用是如果Activity被杀uncertainList的长度不足，用这玩意生成后续
         // uncertainList最多取前50，certainList，session参数和deletedSongs作为参数传给algorithm的那个函数rebuild
         // 然后返回的列表接在uncertainlist上。如果此时uncertainList的长度大于50，那后面的都不要，把返回值接上就好了。
+        // :)
         val head = uncertainList.take(50).toMutableList()
         val generated = Algorithm().rebuild(
             certainList = certainList,
