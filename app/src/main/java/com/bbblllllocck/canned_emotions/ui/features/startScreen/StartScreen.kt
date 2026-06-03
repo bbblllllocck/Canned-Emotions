@@ -472,7 +472,7 @@ fun StartScreen() {
     LaunchedEffect(bottomSheetScaffoldState.bottomSheetState.currentValue) {
         if (bottomSheetScaffoldState.bottomSheetState.currentValue == SheetValue.Expanded) {
             val index = uiState.currentIndex ?: return@LaunchedEffect
-            val firstCertainItemIndex = if (uncertainList.isNotEmpty()) 2 else 1
+            val firstCertainItemIndex = 1
             val targetIndex = (firstCertainItemIndex + index).coerceAtLeast(0)
             listState.animateScrollToItem(targetIndex)
         }
