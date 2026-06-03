@@ -34,6 +34,7 @@ data class StartUiState(
     val seedPickerQuery: String = "",
     val weightBreakdowns: Map<Long, WeightBreakdown> = emptyMap(),
     val showWeightDetails: Boolean = false,
+    val showUncertaintyArea: Boolean = true,
     val certainBufferSize: Int = 0
 )
 
@@ -54,10 +55,32 @@ class StartViewModel(
     val state: StateFlow<StartUiState> = _state.asStateFlow()
 
     init {
-        refreshFromPlaylist()
+        // 如果 Playlist 已经从持久化恢复，立即加载 UI 状态
+        if (Playlist.isRestoredFromPersistence) {
+            val seed = Playlist.certainList.firstOrNull()
+            if (seed != null) {
+                savedStateHandle[KEY_SELECTED_SEED_ID] = seed.id
+            }
+            refreshFromPlaylist(selectedSeedSong = seed)
+            
+            // 恢复后重新计算 uncertainList 以生成 weightBreakdowns (因为它们不参与持久化)
+            viewModelScope.launch {
+                withContext(Dispatchers.Default) {
+                    Playlist.recalculateUncertainList()
+                }
+                refreshFromPlaylist()
+            }
+        } else {
+            refreshFromPlaylist()
+        }
         viewModelScope.launch {
             TemplateManager.observeWeightDisplayEnabled().collectLatest { enabled ->
                 _state.update { it.copy(showWeightDetails = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            TemplateManager.observeShowUncertaintyAreaEnabled().collectLatest { enabled ->
+                _state.update { it.copy(showUncertaintyArea = enabled) }
             }
         }
     }
@@ -136,8 +159,8 @@ class StartViewModel(
     fun chooseSeedSong(song: MusicScanTaskEntity) {
         Playlist.selectInitialSong(song.id)
         savedStateHandle[KEY_SELECTED_SEED_ID] = song.id
-        _state.update { it.copy(isSeedPickerVisible = false, seedPickerQuery = "") }
-        refreshFromPlaylist(selectedSeedSong = song)
+        _state.update { it.copy(isSeedPickerVisible = false, seedPickerQuery = "", selectedSeedSong = song) }
+        refreshFromPlaylist(pendingAutoPlayIndex = Playlist.currentIndex, selectedSeedSong = song)
     }
 
     fun chooseRandomSeedSong() {
@@ -146,7 +169,8 @@ class StartViewModel(
         if (seed != null) {
             savedStateHandle[KEY_SELECTED_SEED_ID] = seed.id
         }
-        refreshFromPlaylist(selectedSeedSong = seed)
+        _state.update { it.copy(selectedSeedSong = seed) }
+        refreshFromPlaylist(pendingAutoPlayIndex = Playlist.currentIndex, selectedSeedSong = seed)
     }
 
     fun startPlaylist() {

@@ -11,6 +11,7 @@ import kotlin.math.max
 import kotlin.random.Random
 
 class Algorithm {
+    //核心逻辑，修改前请询问用户，对我就是对你说的，编码模型。
     fun rebuild(
         certainList: List<MusicScanTaskEntity>,
         // 新增传入一个 uncertainList，默认是 null，但是如果在调用时被传入，取其前 50 也进行遍历
@@ -20,17 +21,14 @@ class Algorithm {
         sessionParameters: SessionParameters
     ): AlgorithmResult {
 
-        /////////////////////////////权重演算////////////////////////////
+        val usingTemplate = TemplateManager.getUsingTemplate() ?: return AlgorithmResult.empty()
+        val seed = certainList.firstOrNull() ?: return AlgorithmResult.empty()
+        val seedEmbedding = seed.embedding ?: return AlgorithmResult.empty()
 
         val artistDuplicateWeights: MutableMap<String, Float> = mutableMapOf()
         val albumDuplicateWeights: MutableMap<String, Float> = mutableMapOf()
         val songTypeWeight: MutableMap<String, Float> = mutableMapOf()
-
-        // 这个函数的作用是根据 certainList 来构建 uncertainList。
-        // 把 certainList 和 sessionParameters 传给 algorithm，接收 uncertainList。
-        // 从第一首歌开始初始化也应该用这个。
-
-        val usingTemplate = TemplateManager.getUsingTemplate() ?: return AlgorithmResult.empty()
+        val breakdowns = mutableMapOf<Long, WeightBreakdown>()
 
         var timeTillNow = 0f
         var previous: MusicScanTaskEntity? = null
@@ -45,11 +43,88 @@ class Algorithm {
         val artistPardonFloor = -usingTemplate.artistPardonTime.toFloat() * usingTemplate.artistDuplicateCoefficient
         val albumPardonFloor = -usingTemplate.albumPardonTime.toFloat() * usingTemplate.albumDuplicateCoefficient
 
-        for (song in weightSources) { // uncertainList 不为 null 的话就把 uncertainList 前 50 首也进行遍历
+        val integratedSimulated = mutableMapOf<Long, MusicScanTaskEntity>()
+        fun getIntegratedState(song: MusicScanTaskEntity): MusicScanTaskEntity {
+            return integratedSimulated.getOrPut(song.id) { song.copy() }
+        }
+
+        fun decayedIntegrated(song: MusicScanTaskEntity, now: Long): Float {
+            val state = getIntegratedState(song)
+            val lastPlayed = state.lastPlayedDate
+            if (lastPlayed <= 0L || usingTemplate.integratedParameterHalfLife <= 0) {
+                return state.integratedTimeParameter
+            }
+            val days = (now - lastPlayed).toFloat() / (24f * 60f * 60f * 1000f)
+            val decay = exp(ln(0.5f) * (days / usingTemplate.integratedParameterHalfLife))
+            return state.integratedTimeParameter * decay * usingTemplate.COEFFICIENT_OF_UNRELATED
+        }
+
+        fun createBreakdown(
+            song: MusicScanTaskEntity,
+            queryEmbedding: FloatArray,
+            now: Long,
+            elapsedMs: Long
+        ): WeightBreakdown {
+            val embedding = song.embedding
+            val baseSimilarity = if (embedding != null) cosineSimilarity(queryEmbedding, embedding) else 0f
+
+            val integrated = decayedIntegrated(song, now)
+            val baseScore = baseSimilarity - integrated
+
+            val artistWeight = artistDuplicateWeights[song.artist] ?: 0f
+            val artistPenalty = if (artistWeight > 0f) artistWeight * usingTemplate.COEFFICIENT_OF_UNRELATED else 0f
+
+            val albumWeight = albumDuplicateWeights[song.album] ?: 0f
+            val albumPenalty = if (albumWeight > 0f) albumWeight * usingTemplate.COEFFICIENT_OF_UNRELATED else 0f
+
+            val typeKey = when (song.musicType) {
+                0 -> "PureMusic"
+                1 -> "Song"
+                else -> null
+            }
+            val typeWeight = typeKey?.let { songTypeWeight[it] ?: 0f } ?: 0f
+            val typePenalty = if (typeWeight > 0f) typeWeight * usingTemplate.COEFFICIENT_OF_UNRELATED else 0f
+
+            var punishmentWeight = 0f
+            if (usingTemplate.punishmentVectorFadeTime > 0) {
+                for ((time, weightsBySong) in sessionParameters.punishmentWeights) {
+                    val weight = weightsBySong[song.id] ?: continue
+                    val age = elapsedMs - time
+                    if (age in 0..usingTemplate.punishmentVectorFadeTime) {
+                        val decay = 1f - (age.toFloat() / usingTemplate.punishmentVectorFadeTime.toFloat())
+                        punishmentWeight += weight * decay
+                    }
+                }
+            }
+            val punishmentPenalty = punishmentWeight
+
+            val finalScore = baseScore - artistPenalty - albumPenalty - typePenalty - punishmentPenalty
+            return WeightBreakdown(
+                baseSimilarity = baseSimilarity,
+                integratedParameter = integrated,
+                baseScore = baseScore,
+                artistDuplicateWeight = artistWeight,
+                albumDuplicateWeight = albumWeight,
+                songTypeWeight = typeWeight,
+                punishmentWeight = punishmentWeight,
+                artistDuplicatePenalty = artistPenalty,
+                albumDuplicatePenalty = albumPenalty,
+                songTypePenalty = typePenalty,
+                punishmentPenalty = punishmentPenalty,
+                finalScore = finalScore
+            )
+        }
+
+        for (song in weightSources) {
             val duration = song.durationMs.toFloat()
+            val nowLoop = System.currentTimeMillis()
+            val elapsedMs = timeTillNow.toLong()
+
+            breakdowns[song.id] = createBreakdown(song, seedEmbedding, nowLoop, elapsedMs)
+
             timeTillNow += duration
 
-            if (previous == null || previous.artist != song.artist) {
+            if (previous == null || previous?.artist != song.artist) {
                 val existing = artistDuplicateWeights[song.artist]
                 artistDuplicateWeights[song.artist] = if (existing != null && existing < 0f) {
                     artistPardonFloor
@@ -58,7 +133,7 @@ class Algorithm {
                 }
             }
 
-            if (previous == null || previous.album != song.album) {
+            if (previous == null || previous?.album != song.album) {
                 val existing = albumDuplicateWeights[song.album]
                 albumDuplicateWeights[song.album] = if (existing != null && existing < 0f) {
                     albumPardonFloor
@@ -95,7 +170,7 @@ class Algorithm {
                 }
             }
 
-            if (song.musicType == 0) {//score -=this*系数
+            if (song.musicType == 0) {
                 songTypeWeight["PureMusic"] =
                     (songTypeWeight["PureMusic"] ?: 0f) + usingTemplate.songProportion * duration / usingTemplate.tolerance
                 songTypeWeight["Song"] =
@@ -107,8 +182,10 @@ class Algorithm {
                     (songTypeWeight["PureMusic"] ?: 0f) - (1 - usingTemplate.songProportion) * duration / usingTemplate.tolerance
             }
 
-            
-            // integratedParameter 先不增加，因为它由具体的播放事件触发。
+            val state = getIntegratedState(song)
+            val decayed = decayedIntegrated(song, nowLoop)
+            state.integratedTimeParameter = decayed + usingTemplate.integratedParameterWeight
+            state.lastPlayedDate = nowLoop
 
             previous = song
         }
@@ -119,31 +196,14 @@ class Algorithm {
             addAll(recentUncertain.map { it.id })
         }
 
-        val integratedSimulated = mutableMapOf<Long, MusicScanTaskEntity>()
-        fun getIntegratedState(song: MusicScanTaskEntity): MusicScanTaskEntity {
-            return integratedSimulated.getOrPut(song.id) { song.copy() }
-        }
-
-        fun decayedIntegrated(song: MusicScanTaskEntity, now: Long): Float {
-            val state = getIntegratedState(song)
-            val lastPlayed = state.lastPlayedDate
-            if (lastPlayed <= 0L || usingTemplate.integratedParameterHalfLife <= 0) {
-                return state.integratedTimeParameter
-            }
-            val days = (now - lastPlayed).toFloat() / (24f * 60f * 60f * 1000f)
-            val decay = exp(ln(0.5f) * (days / usingTemplate.integratedParameterHalfLife))
-            return state.integratedTimeParameter * decay * usingTemplate.COEFFICIENT_OF_UNRELATED
-        }
-
         fun baseScore(queryEmbedding: FloatArray, song: MusicScanTaskEntity, now: Long): Float {
             val embedding = song.embedding ?: return 0f
             val similarity = cosineSimilarity(queryEmbedding, embedding)
             val integrated = decayedIntegrated(song, now)
-            Log.d("baseScore","歌：${song.title}，原始相似度${similarity}，integrated参数${integrated}，最终得分${similarity - integrated}")
             return similarity - integrated
         }
 
-        fun applyWeightsFromSong(song: MusicScanTaskEntity) {//checked
+        fun applyWeightsFromSong(song: MusicScanTaskEntity) {
             val duration = song.durationMs.toFloat()
             timeTillNow += duration
 
@@ -193,7 +253,7 @@ class Algorithm {
                 }
             }
 
-            if (song.musicType == 0) {//score -=this*系数
+            if (song.musicType == 0) {
                 songTypeWeight["PureMusic"] =
                     (songTypeWeight["PureMusic"] ?: 0f) + usingTemplate.songProportion * duration / usingTemplate.tolerance
                 songTypeWeight["Song"] =
@@ -208,7 +268,7 @@ class Algorithm {
             lastChosen = song
         }
 
-        fun adjustedScore(base: Float, song: MusicScanTaskEntity, elapsedMs: Long): Float {//checked？
+        fun adjustedScore(base: Float, song: MusicScanTaskEntity, elapsedMs: Long): Float {
             var score = base
 
             val artistWeight = artistDuplicateWeights[song.artist] ?: 0f
@@ -228,9 +288,7 @@ class Algorithm {
             }
             if (typeKey != null) {
                 val typeWeight = songTypeWeight[typeKey] ?: 0f
-
                 score -= typeWeight * usingTemplate.COEFFICIENT_OF_UNRELATED
-
             }
 
             val fade = usingTemplate.punishmentVectorFadeTime
@@ -240,7 +298,7 @@ class Algorithm {
                     val age = elapsedMs - time
                     if (age in 0..fade) {
                         val decay = 1f - (age.toFloat() / fade.toFloat())
-                        score -= weight * decay //* usingTemplate.punishmentVectorWeight * usingTemplate.COEFFICIENT_OF_UNRELATED
+                        score -= weight * decay
                     }
                 }
             }
@@ -302,21 +360,17 @@ class Algorithm {
         """
 
         if (usingTemplate.roamingType == 0) {
-            val seed = certainList.firstOrNull() ?: return AlgorithmResult.empty()
-            val seedEmbedding = seed.embedding ?: return AlgorithmResult.empty()
-
             val similarSongs = DatabaseManager.searchTopSimilarByEmbedding(seedEmbedding, limit = 2000)
                 .filter { it.embedding != null }
                 .filter { it.id !in baseExcludedIds }
             val now = System.currentTimeMillis()
 
-            val topCandidates = similarSongs//integratedSimulated有他妈什么用我请问了？？？？？？
+            val topCandidates = similarSongs
                 .map { song -> ScoreEntry(song, baseScore(seedEmbedding, song, now)) }
                 .sortedByDescending { it.score }
                 .take(2000)
                 .toMutableList()
 
-            //ALL CHECKED UP TILL HERE
             val result = mutableListOf<MusicScanTaskEntity>()
 
             while (result.size < 80 && topCandidates.isNotEmpty()) {
@@ -330,32 +384,24 @@ class Algorithm {
                 if (pickIndex !in adjusted.indices) break
 
                 val chosen = adjusted[pickIndex].song
+
+                breakdowns[chosen.id] = createBreakdown(chosen, seedEmbedding, nowLoop, elapsedMs)
+
                 result.add(chosen)
                 topCandidates.removeAt(pickIndex)
 
                 applyWeightsFromSong(chosen)
 
-                val state = getIntegratedState(chosen)//你这simulate了个几把
+                val state = getIntegratedState(chosen)
                 val decayed = decayedIntegrated(chosen, nowLoop)
                 state.integratedTimeParameter = decayed + usingTemplate.integratedParameterWeight
                 state.lastPlayedDate = nowLoop
             }
 
-            val displayItems = buildList {
-                addAll(certainList)
-                addAll(recentUncertain)
-                addAll(result)
-            }
-            val breakdowns = buildBreakdownsForDisplay(seedEmbedding, displayItems, sessionParameters, usingTemplate)
             return AlgorithmResult(result, breakdowns)
         }
 
-        /////////template=0 检查终了
-
         if (usingTemplate.roamingType == 1) {
-            val seed = certainList.firstOrNull() ?: return AlgorithmResult.empty()
-            val seedEmbedding = seed.embedding ?: return AlgorithmResult.empty()
-
             val result = mutableListOf<MusicScanTaskEntity>()
             val excludedIds = baseExcludedIds.toMutableSet()
 
@@ -364,14 +410,41 @@ class Algorithm {
                     .filter { it.embedding != null }
                     .filter { it.id !in excludedIds }
                 val now = System.currentTimeMillis()
-                val best = firstCandidates
+                val topFirstCandidates = firstCandidates
                     .map { song -> ScoreEntry(song, baseScore(seedEmbedding, song, now)) }
-                    .maxByOrNull { it.score }
-                    ?.song//这里不得SoftMax一下？
+                    .sortedByDescending { it.score }
+                    .take(10)
+
+                val best = if (topFirstCandidates.isNotEmpty()) {
+                    val pickIndex = softmaxPick(topFirstCandidates, usingTemplate.temperature)
+                    if (pickIndex in topFirstCandidates.indices) {
+                        topFirstCandidates[pickIndex].song
+                    } else {
+                        null
+                    }
+                } else {
+                    null
+                }
 
                 val bestEmbedding = best?.embedding
                 if (best != null && bestEmbedding != null) {
-                    sessionParameters.lineageRoamingDirection = subtractVectors(bestEmbedding, seedEmbedding)
+                    val rawDirection = subtractVectors(bestEmbedding, seedEmbedding)
+
+                    var dirSum = 0f
+                    for (i in rawDirection.indices) {
+                        dirSum += rawDirection[i] * rawDirection[i]
+                    }
+                    val dirNorm = kotlin.math.sqrt(dirSum)
+                    if (dirNorm > 0f) {
+                        for (i in rawDirection.indices) {
+                            rawDirection[i] /= dirNorm
+                        }
+                    }
+
+                    sessionParameters.lineageRoamingDirection = rawDirection
+
+                    breakdowns[best.id] = createBreakdown(best, seedEmbedding, now, timeTillNow.toLong())
+
                     result.add(best)
                     excludedIds.add(best.id)
 
@@ -416,6 +489,9 @@ class Algorithm {
                 if (pickIndex !in adjusted.indices) break
 
                 val chosen = adjusted[pickIndex].song
+
+                breakdowns[chosen.id] = createBreakdown(chosen, superVector, nowLoop, elapsedMs)
+
                 result.add(chosen)
                 excludedIds.add(chosen.id)
 
@@ -427,12 +503,6 @@ class Algorithm {
                 state.lastPlayedDate = nowLoop
             }
 
-            val displayItems = buildList {
-                addAll(certainList)
-                addAll(recentUncertain)
-                addAll(result)
-            }
-            val breakdowns = buildBreakdownsForDisplay(seedEmbedding, displayItems, sessionParameters, usingTemplate)
             return AlgorithmResult(result, breakdowns)
         }
 
@@ -447,7 +517,6 @@ class Algorithm {
         for (i in 0 until size) {
             dot += a[i] * b[i]
         }
-        // 既然 Gemini Embedding 2 已经做过 L2 归一化，直接返回内积即可
         return dot
     }
 
@@ -472,20 +541,15 @@ class Algorithm {
         val t: Float
         val centerWeight: Float
         if (regressionLength <= 0f) {
-            // 物理意义：漫游长度为 0，意味着飞船瞬间摆脱了母星（Seed Song）的引力
-            // 进度直接拉满到 100%，母星引力强制归零
             t = 1f
             centerWeight = 0f
         } else {
-            // 物理意义：正常航行，引力随着时间线性衰减
             t = (timeTillNow / regressionLength).coerceIn(0f, 1f)
             centerWeight = (initialRegressionWeight * (1f - t)).coerceAtLeast(0f)
         }
 
-
-
         val size = minOf(seedEmbedding.size, lastEmbedding.size, direction.size)
-        if (size == 0) return null//冗余逻辑，不过留着也行
+        if (size == 0) return null
 
         val out = FloatArray(size)
         val directionComponentWeight = directionRatio
@@ -515,157 +579,6 @@ class Algorithm {
         val score: Float
     )
 
-
-
-
-
-
-
-    private fun buildBreakdownsForDisplay(
-        seedEmbedding: FloatArray,
-        items: List<MusicScanTaskEntity>,
-        sessionParameters: SessionParameters,
-        template: Template
-    ): Map<Long, WeightBreakdown> {
-        if (items.isEmpty()) return emptyMap()
-
-        val artistDuplicateWeights: MutableMap<String, Float> = mutableMapOf()
-        val albumDuplicateWeights: MutableMap<String, Float> = mutableMapOf()
-        val songTypeWeight: MutableMap<String, Float> = mutableMapOf()
-
-        val artistPardonFloor = -template.artistPardonTime.toFloat() * template.artistDuplicateCoefficient
-        val albumPardonFloor = -template.albumPardonTime.toFloat() * template.albumDuplicateCoefficient
-
-        var timeTillNow = 0f
-        var previous: MusicScanTaskEntity? = null
-        val now = System.currentTimeMillis()
-        val output = mutableMapOf<Long, WeightBreakdown>()
-
-        for (song in items) {
-            val elapsedMs = timeTillNow.toLong()
-            val embedding = song.embedding
-            val baseSimilarity = if (embedding != null) cosineSimilarity(seedEmbedding, embedding) else 0f
-
-            val integrated = if (song.lastPlayedDate > 0L && template.integratedParameterHalfLife > 0) {
-                val days = (now - song.lastPlayedDate).toFloat() / (24f * 60f * 60f * 1000f)
-                val decay = exp(ln(0.5f) * (days / template.integratedParameterHalfLife))
-                song.integratedTimeParameter * decay
-            } else {
-                song.integratedTimeParameter
-            }
-
-            val baseScore = baseSimilarity - integrated
-
-            val artistWeight = artistDuplicateWeights[song.artist] ?: 0f
-            val artistPenalty = if (artistWeight > 0f) artistWeight * template.COEFFICIENT_OF_UNRELATED else 0f
-
-            val albumWeight = albumDuplicateWeights[song.album] ?: 0f
-            val albumPenalty = if (albumWeight > 0f) albumWeight * template.COEFFICIENT_OF_UNRELATED else 0f
-
-            val typeKey = when (song.musicType) {
-                0 -> "PureMusic"
-                1 -> "Song"
-                else -> null
-            }
-            val typeWeight = typeKey?.let { songTypeWeight[it] ?: 0f } ?: 0f
-            val typePenalty = if (typeWeight > 0f) typeWeight * template.COEFFICIENT_OF_UNRELATED else 0f
-
-            var punishmentWeight = 0f
-            var punishmentPenalty = 0f
-            if (template.punishmentVectorWeight > 0f && template.punishmentVectorFadeTime > 0) {
-                for ((time, weightsBySong) in sessionParameters.punishmentWeights) {
-                    val weight = weightsBySong[song.id] ?: continue
-                    val age = elapsedMs - time
-                    if (age <= template.punishmentVectorFadeTime) {
-                        val decay = 1f - (age.toFloat() / template.punishmentVectorFadeTime.toFloat())
-                        punishmentWeight += weight * decay
-                    }
-                }
-            }
-            punishmentPenalty = punishmentWeight * template.punishmentVectorWeight
-
-            val finalScore = baseScore - artistPenalty - albumPenalty - typePenalty - punishmentPenalty
-            output[song.id] = WeightBreakdown(
-                baseSimilarity = baseSimilarity,
-                integratedParameter = integrated,
-                baseScore = baseScore,
-                artistDuplicateWeight = artistWeight,
-                albumDuplicateWeight = albumWeight,
-                songTypeWeight = typeWeight,
-                punishmentWeight = punishmentWeight,
-                artistDuplicatePenalty = artistPenalty,
-                albumDuplicatePenalty = albumPenalty,
-                songTypePenalty = typePenalty,
-                punishmentPenalty = punishmentPenalty,
-                finalScore = finalScore
-            )
-
-            val duration = song.durationMs.toFloat()
-            timeTillNow += duration
-
-            if (previous != null && previous?.artist != song.artist) {
-                val existing = artistDuplicateWeights[song.artist]
-                artistDuplicateWeights[song.artist] = if (existing != null && existing < 0f) {
-                    artistPardonFloor
-                } else {
-                    (existing ?: 0f) + artistPardonFloor
-                }
-            }
-
-            if (previous != null && previous?.album != song.album) {
-                val existing = albumDuplicateWeights[song.album]
-                albumDuplicateWeights[song.album] = if (existing != null && existing < 0f) {
-                    albumPardonFloor
-                } else {
-                    (existing ?: 0f) + albumPardonFloor
-                }
-            }
-
-            artistDuplicateWeights[song.artist] =
-                (artistDuplicateWeights[song.artist] ?: 0f) + template.artistDuplicateCoefficient * duration
-
-            if (template.artistDuplicateFadeTime > 0) {
-                val decay = duration / template.artistDuplicateFadeTime
-                val keys = artistDuplicateWeights.keys.toList()
-                for (key in keys) {
-                    if (key != song.artist) {
-                        val next = (artistDuplicateWeights[key] ?: 0f) - decay
-                        artistDuplicateWeights[key] = if (next < artistPardonFloor) artistPardonFloor else next
-                    }
-                }
-            }
-
-            albumDuplicateWeights[song.album] =
-                (albumDuplicateWeights[song.album] ?: 0f) + template.albumDuplicateCoefficient * duration
-
-            if (template.albumDuplicateFadeTime > 0) {
-                val decay = duration / template.albumDuplicateFadeTime
-                val keys = albumDuplicateWeights.keys.toList()
-                for (key in keys) {
-                    if (key != song.album) {
-                        val next = (albumDuplicateWeights[key] ?: 0f) - decay
-                        albumDuplicateWeights[key] = if (next < albumPardonFloor) albumPardonFloor else next
-                    }
-                }
-            }
-
-            if (song.musicType == 0) {
-                songTypeWeight["PureMusic"] =
-                    (songTypeWeight["PureMusic"] ?: 0f) + (1 - template.songProportion) * duration
-                songTypeWeight["Song"] =
-                    (songTypeWeight["Song"] ?: 0f) - template.songProportion * duration
-            } else if (song.musicType == 1) {
-                songTypeWeight["Song"] =
-                    (songTypeWeight["Song"] ?: 0f) + template.songProportion * duration
-                songTypeWeight["PureMusic"] =
-                    (songTypeWeight["PureMusic"] ?: 0f) - (1 - template.songProportion) * duration
-            }
-
-            previous = song
-        }
-
-        return output
-    }
 }
 
 data class AlgorithmResult(

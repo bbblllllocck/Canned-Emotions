@@ -5,6 +5,12 @@ import com.bbblllllocck.canned_emotions.core.algorithm.Algorithm
 import com.bbblllllocck.canned_emotions.core.algorithm.TemplateManager
 import com.bbblllllocck.canned_emotions.core.database.objectboxFunctions.DatabaseManager
 import com.bbblllllocck.canned_emotions.core.database.objectboxFunctions.MusicScanTaskEntity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 
 data class WeightBreakdown(
@@ -52,6 +58,43 @@ object Playlist {
 
     var usingTemplate= TemplateManager.getUsingTemplate()
 
+    // 持久化相关
+    private val persistenceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var saveJob: Job? = null
+    var isRestoredFromPersistence: Boolean = false
+        private set
+
+    fun restoreFromPersistence() {
+        val state = PlaylistPersistence.restore() ?: return
+        certainList.clear()
+        certainList.addAll(state.certainList)
+        uncertainList.clear()
+        uncertainList.addAll(state.uncertainList)
+        deletedSongs.clear()
+        deletedSongs.addAll(state.deletedSongs)
+        currentIndex = state.currentIndex
+        certainBufferSize = state.certainBufferSize
+        sessionParameters.punishmentWeights.clear()
+        sessionParameters.punishmentWeights.putAll(state.sessionParameters.punishmentWeights)
+        sessionParameters.lineageRoamingDirection = state.sessionParameters.lineageRoamingDirection
+        isRestoredFromPersistence = certainList.isNotEmpty()
+    }
+
+    private fun scheduleSave() {
+        saveJob?.cancel()
+        saveJob = persistenceScope.launch {
+            delay(500) // 防抖 500ms
+            PlaylistPersistence.save(
+                certainList = certainList.toList(),
+                uncertainList = uncertainList.toList(),
+                deletedSongs = deletedSongs.toList(),
+                currentIndex = currentIndex,
+                certainBufferSize = certainBufferSize,
+                sessionParameters = sessionParameters
+            )
+        }
+    }
+
 
 
     //列表长度监听/控制。
@@ -77,6 +120,7 @@ object Playlist {
 
         certainList.add(seed)
         currentIndex = 0
+        scheduleSave()
         //播放器播放
     }
 
@@ -93,6 +137,7 @@ object Playlist {
 
         certainList.add(seed)
         currentIndex = 0
+        scheduleSave()
         //播放
     }
 
@@ -100,13 +145,15 @@ object Playlist {
         if (certainList.isEmpty()) return
         rebuild()
         ensureBuffer()
+        scheduleSave()
     }
 
     fun updateBufferSize(newSize: Int) {
         val clamped = newSize.coerceAtLeast(0)
         if (clamped == certainBufferSize) return
         certainBufferSize = clamped
-        rebalanceBuffer(allowRebuild = false)
+        rebalanceBuffer(allowRebuild = false, forceShrink = true)
+        scheduleSave()
     }
 
     fun rebuild() {
@@ -183,7 +230,7 @@ object Playlist {
         }
 
         ensureBuffer()
-
+        scheduleSave()
     }
 
     //暂停和拖进度条就直接让UI和播放器沟通吧
@@ -204,6 +251,7 @@ object Playlist {
         }
 
         ensureBuffer()
+        scheduleSave()
     }
 
     fun switchToSong(targetIndex: Int) {
@@ -236,6 +284,7 @@ object Playlist {
         if (shouldApplySwitchPunishment()) {
             recalculateUncertainList()
         }
+        scheduleSave()
     }
 
     fun delFromList(targetIndex: Int) {
@@ -259,23 +308,26 @@ object Playlist {
 
         ensureBuffer()
         recalculateUncertainList()
+        scheduleSave()
     }
 
     //那么这里需要有一个函数监听播放器来考虑自动切歌（正常播放而不手动跳转）的情况。
 
 
     private fun ensureBuffer() {
-        rebalanceBuffer(allowRebuild = true)
+        rebalanceBuffer(allowRebuild = true, forceShrink = false)
     }
 
-    private fun rebalanceBuffer(allowRebuild: Boolean) {
+    private fun rebalanceBuffer(allowRebuild: Boolean, forceShrink: Boolean = false) {
         val targetSize = (currentIndex + certainBufferSize + 1).coerceAtLeast(0)
         while (certainList.size < targetSize && uncertainList.isNotEmpty()) {
             certainList.add(uncertainList.removeAt(0))
         }
-        while (certainList.size > targetSize && certainList.size > currentIndex + 1) {
-            val moved = certainList.removeAt(certainList.lastIndex)
-            uncertainList.add(0, moved)
+        if (forceShrink) {
+            while (certainList.size > targetSize && certainList.size > currentIndex + 1) {
+                val moved = certainList.removeAt(certainList.lastIndex)
+                uncertainList.add(0, moved)
+            }
         }
 
         if (allowRebuild && uncertainList.size <= 50) {

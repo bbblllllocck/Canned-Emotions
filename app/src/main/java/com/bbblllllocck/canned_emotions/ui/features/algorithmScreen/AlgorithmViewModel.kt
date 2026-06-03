@@ -17,7 +17,8 @@ data class AlgorithmScreenState(
     val usingTemplateId: String? = null,
     val isEditing: Boolean = false,
     val editingTemplate: Template? = null,
-    val showWeightDetails: Boolean = false
+    val showWeightDetails: Boolean = false,
+    val showUncertaintyArea: Boolean = true
 )
 
 class AlgorithmViewModel : ViewModel() {
@@ -45,6 +46,11 @@ class AlgorithmViewModel : ViewModel() {
         viewModelScope.launch {
             TemplateManager.observeWeightDisplayEnabled().collectLatest { enabled ->
                 _state.update { it.copy(showWeightDetails = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            TemplateManager.observeShowUncertaintyAreaEnabled().collectLatest { enabled ->
+                _state.update { it.copy(showUncertaintyArea = enabled) }
             }
         }
     }
@@ -93,7 +99,18 @@ class AlgorithmViewModel : ViewModel() {
     }
 
     fun updateIntegratedParameterWeight(value: Float) {
-        updateEditing { it.copy(integratedParameterWeight = value) }
+        updateEditing { it.copy(integratedParameterWeight = value, savedIntegratedParameterWeight = value) }
+    }
+
+    fun updateEnableIntegratedParameter(value: Boolean) {
+        updateEditing {
+            val saved = if (!value && it.integratedParameterWeight > 0f) it.integratedParameterWeight else it.savedIntegratedParameterWeight
+            it.copy(
+                enableIntegratedParameter = value,
+                savedIntegratedParameterWeight = saved,
+                integratedParameterWeight = if (value) saved else 0f
+            )
+        }
     }
 
     fun updateIntegratedParameterHalfLife(value: Int) {
@@ -101,7 +118,18 @@ class AlgorithmViewModel : ViewModel() {
     }
 
     fun updateArtistDuplicateCoefficient(value: Float) {
-        updateEditing { it.copy(artistDuplicateCoefficient = value) }
+        updateEditing { it.copy(artistDuplicateCoefficient = value, savedArtistDuplicateCoefficient = value) }
+    }
+
+    fun updateEnableArtistDuplicate(value: Boolean) {
+        updateEditing {
+            val saved = if (!value && it.artistDuplicateCoefficient > 0f) it.artistDuplicateCoefficient else it.savedArtistDuplicateCoefficient
+            it.copy(
+                enableArtistDuplicate = value,
+                savedArtistDuplicateCoefficient = saved,
+                artistDuplicateCoefficient = if (value) saved else 0f
+            )
+        }
     }
 
     fun updateArtistDuplicateFadeTime(value: Int) {
@@ -113,7 +141,18 @@ class AlgorithmViewModel : ViewModel() {
     }
 
     fun updateAlbumDuplicateCoefficient(value: Float) {
-        updateEditing { it.copy(albumDuplicateCoefficient = value) }
+        updateEditing { it.copy(albumDuplicateCoefficient = value, savedAlbumDuplicateCoefficient = value) }
+    }
+
+    fun updateEnableAlbumDuplicate(value: Boolean) {
+        updateEditing {
+            val saved = if (!value && it.albumDuplicateCoefficient > 0f) it.albumDuplicateCoefficient else it.savedAlbumDuplicateCoefficient
+            it.copy(
+                enableAlbumDuplicate = value,
+                savedAlbumDuplicateCoefficient = saved,
+                albumDuplicateCoefficient = if (value) saved else 0f
+            )
+        }
     }
 
     fun updateAlbumDuplicateFadeTime(value: Int) {
@@ -133,7 +172,18 @@ class AlgorithmViewModel : ViewModel() {
     }
 
     fun updatePunishmentVectorWeight(value: Float) {
-        updateEditing { it.copy(punishmentVectorWeight = value) }
+        updateEditing { it.copy(punishmentVectorWeight = value, savedPunishmentVectorWeight = value) }
+    }
+
+    fun updateEnablePunishment(value: Boolean) {
+        updateEditing {
+            val saved = if (!value && it.punishmentVectorWeight > 0f) it.punishmentVectorWeight else it.savedPunishmentVectorWeight
+            it.copy(
+                enablePunishment = value,
+                savedPunishmentVectorWeight = saved,
+                punishmentVectorWeight = if (value) saved else 0f
+            )
+        }
     }
 
     fun updatePunishmentVectorWeightWhenSwitch(value: Float) {
@@ -166,6 +216,10 @@ class AlgorithmViewModel : ViewModel() {
 
     fun setWeightDetailsEnabled(enabled: Boolean) {
         TemplateManager.setWeightDisplayEnabled(enabled)
+    }
+
+    fun setShowUncertaintyAreaEnabled(enabled: Boolean) {
+        TemplateManager.setShowUncertaintyAreaEnabled(enabled)
     }
 
     private fun updateEditing(transform: (Template) -> Template) {

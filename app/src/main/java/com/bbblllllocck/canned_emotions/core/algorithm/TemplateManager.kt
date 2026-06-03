@@ -23,38 +23,47 @@ data class Template(
     var name: String,
 
     //定义极大影响相关性系数，认为被该参数完整影响时会使结果和起始点完全不相关。
-    var COEFFICIENT_OF_UNRELATED : Float = 0.15f,
+    var COEFFICIENT_OF_UNRELATED : Float = 0.17f,
     //归根结底，对于相似度的定义是关键的。也许是30%？
 
 
     //时间&次数综合推荐参数
-    var integratedParameterWeight: Float = 0.2f,//（0到1，1表示听1次后相关权重就COEFFICIENT_OF_UNRELATED，0.5就是听2次）
-    var integratedParameterHalfLife: Int = 15,//（天）
+    var enableIntegratedParameter: Boolean = true,
+    var savedIntegratedParameterWeight: Float = 0.81021583f,
+    var integratedParameterWeight: Float = 0.81021583f,//（0到1，1表示听1次后相关权重就COEFFICIENT_OF_UNRELATED，0.5就是听2次）
+    var integratedParameterHalfLife: Int = 46,//（天）
     //UI上表示为：一首歌被推荐x次后就不大可能被推荐，x天后衰减一半。
 
     //专辑&艺术家查重系数
-    var artistDuplicateCoefficient: Float = 0.00000138f,//（0到1，0就是关，1就是一个艺术家听一ms后权重也直接减一个不相关系数，0.5两次，此项不包含赦免时间）
-    var artistDuplicateFadeTime: Int = 1200000,//（ms，和上面那个参数配合使用的，查重系数均匀递减，或者别的什么，到时候看我用什么数学公式吧。那么它和（赦免时间与赦免时间加1/artistDuplicateCoefficientPerMinute）的平均值的比值就可以表示为——听了几个艺术家后你会想听原来的？不过太不直观了，还是按时间计吧）
-    var artistPardonTime: Int = 420000,//（ms，艺术家赦免时间，这个时间内的听歌记录不计入查重惩罚的计算）
+    var enableArtistDuplicate: Boolean = true,
+    var savedArtistDuplicateCoefficient: Float = 4.1666667E-6f,
+    var artistDuplicateCoefficient: Float = 4.1666667E-6f,//（0到1，0就是关，1就是一个艺术家听一ms后权重也直接减一个不相关系数，0.5两次，此项不包含赦免时间）
+    var artistDuplicateFadeTime: Int = 1505439,//（ms，和上面那个参数配合使用的，查重系数均匀递减，或者别的什么，到时候看我用什么数学公式吧。那么它和（赦免时间与赦免时间加1/artistDuplicateCoefficientPerMinute）的平均值的比值就可以表示为——听了几个艺术家后你会想听原来的？不过太不直观了，还是按时间计吧）
+    var artistPardonTime: Int = 180000,//（ms，艺术家赦免时间，这个时间内的听歌记录不计入查重惩罚的计算）
     //那么在UI上我希望是：在xx时间（赦免）到xx时间（查重）内被允许播放同一个艺术家的歌，xx时间（消逝）后完全清除，然后这仨最好在一个窗口里面设置，为一组。
+    //赦免还是不能调大，不然容易打乒乓球。那这个，那还是不要这么描述吧，赦免时间应该是一个额外的东西。
 
     //和上面一样
-    var albumDuplicateCoefficient: Float = 0.00000125f,//（0到1，0就是关，1就是一个专辑听完一ms后权重也直接减一个不相关系数，0.5两次）
-    var albumDuplicateFadeTime: Int = 600000,//（一样）
-    var albumPardonTime: Int = 300000,//（ms，专辑赦免时间，这个时间内的听歌记录不计入查重惩罚的计算）
+    var enableAlbumDuplicate: Boolean = true,
+    var savedAlbumDuplicateCoefficient: Float = 2.5000002E-6f,
+    var albumDuplicateCoefficient: Float = 2.5000002E-6f,//（0到1，0就是关，1就是一个专辑听完一ms后权重也直接减一个不相关系数，0.5两次）
+    var albumDuplicateFadeTime: Int = 739470,//（一样）
+    var albumPardonTime: Int = 90000,//（ms，专辑赦免时间，这个时间内的听歌记录不计入查重惩罚的计算）
 
 
     //温度
-    var temperature: Float = 0.012f,// 温度，不过我不太知道它具体怎么工作，反之得给playlist来一点随机性
+    var temperature: Float = 0.01f,// 温度，不过我不太知道它具体怎么工作，反之得给playlist来一点随机性
 
     //惩罚向量
-    var punishmentVectorFadeTime: Int = 900000,//（ms，惩罚向量在此时间内平滑衰减）
-    var punishmentVectorWeight: Float = 0.175f,//（0-1，惩罚向量的权重，为1时会极大影响结果，-30%，0为关）
-    var punishmentVectorWeightWhenSwitch: Float = 0.0875f,//（0-1，直接在播放列表里面换别的歌时惩罚向量的权重，当然如果是同一首可不能触发这个）
+    var enablePunishment: Boolean = true,
+    var savedPunishmentVectorWeight: Float = 0.15f,
+    var punishmentVectorFadeTime: Int = 300000,//（ms，惩罚向量在此时间内平滑衰减）
+    var punishmentVectorWeight: Float = 0.15f,//（0-1，惩罚向量的权重，为1时会极大影响结果，-30%，0为关）
+    var punishmentVectorWeightWhenSwitch: Float = 0.3f,//（0-1，直接在播放列表里面换别的歌时惩罚向量的权重，当然如果是同一首可不能触发这个）
     //在UI上表现为，如果手动换歌会触发
 
     //单曲比例
-    var songProportion: Float = 0.5f,//（0-1，0就是全是纯音乐1就是全是单曲。-1就是不管。这里的“比例”定义是，比如说0.3，那单曲就是0.3，纯音乐0.7）
+    var songProportion: Float = 0.53847045f,//（0-1，0就是全是纯音乐1就是全是单曲。-1解就是不管。这里的“比例”定义是，比如说0.3，那单曲就是0.3，纯音乐0.7）
     var tolerance: Int = 300000,//（ms，播放时间*比例到达这个值会极大影响权重。）
 
 
@@ -76,12 +85,14 @@ private const val TEMPLATE_STORE_NAME = "template_store"
 private const val TEMPLATE_LIST_KEY = "templates_json"
 private const val USING_TEMPLATE_KEY = "using_template_id"
 private const val SHOW_WEIGHT_DETAILS_KEY = "show_weight_details"
+private const val SHOW_UNCERTAINTY_AREA_KEY = "show_uncertainty_area"
 
 private val Context.templateDataStore: DataStore<Preferences> by preferencesDataStore(
     name = TEMPLATE_STORE_NAME
 )
 
 object TemplateManager {
+    // TODO: 以后可能需要单独写一个设置页面来专门管理这些配置项和开关。
     private val appContext: Context by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { AppContextProvider.get() }
     private val dataStore: DataStore<Preferences> by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         appContext.templateDataStore
@@ -89,10 +100,12 @@ object TemplateManager {
     private val templateListKey = stringPreferencesKey(TEMPLATE_LIST_KEY)
     private val usingTemplateKey = stringPreferencesKey(USING_TEMPLATE_KEY)
     private val showWeightDetailsKey = booleanPreferencesKey(SHOW_WEIGHT_DETAILS_KEY)
+    private val showUncertaintyAreaKey = booleanPreferencesKey(SHOW_UNCERTAINTY_AREA_KEY)
 
     private val templatesState = MutableStateFlow(readAllOrNull().orEmpty())
     private val usingTemplateIdState = MutableStateFlow(readUsingIdOrNull())
     private val showWeightDetailsState = MutableStateFlow(readShowWeightDetailsOrNull() ?: false)
+    private val showUncertaintyAreaState = MutableStateFlow(readShowUncertaintyAreaOrNull() ?: true)
 
     init {
         ensureDefaults()
@@ -103,12 +116,23 @@ object TemplateManager {
     fun observeUsingTemplateId(): Flow<String?> = usingTemplateIdState.asStateFlow()
 
     fun observeWeightDisplayEnabled(): Flow<Boolean> = showWeightDetailsState.asStateFlow()
+    
+    fun observeShowUncertaintyAreaEnabled(): Flow<Boolean> = showUncertaintyAreaState.asStateFlow()
 
     fun setWeightDisplayEnabled(enabled: Boolean) {
         showWeightDetailsState.value = enabled
         runBlocking {
             dataStore.edit { prefs ->
                 prefs[showWeightDetailsKey] = enabled
+            }
+        }
+    }
+    
+    fun setShowUncertaintyAreaEnabled(enabled: Boolean) {
+        showUncertaintyAreaState.value = enabled
+        runBlocking {
+            dataStore.edit { prefs ->
+                prefs[showUncertaintyAreaKey] = enabled
             }
         }
     }
@@ -135,7 +159,7 @@ object TemplateManager {
         if (current.none { it.id == templateId }) return
 
         val next = current.filterNot { it.id == templateId }
-        val normalized = if (next.isEmpty()) listOf(Template(id = "default", name = "默认模板")) else next
+        val normalized = if (next.isEmpty()) listOf(Template(id = "default", name = "bbblllllocck乱调")) else next
 
         templatesState.value = normalized
         saveAll(normalized)
@@ -178,7 +202,7 @@ object TemplateManager {
 
     private fun ensureDefaults() {
         if (templatesState.value.isEmpty()) {
-            val defaultTemplate = Template(id = "default", name = "默认模板")
+            val defaultTemplate = Template(id = "default", name = "bbblllllocck乱调")
             templatesState.value = listOf(defaultTemplate)
             saveAll(templatesState.value)
         }
@@ -203,6 +227,10 @@ object TemplateManager {
     private fun readShowWeightDetailsOrNull(): Boolean? {
         return runBlocking { dataStore.data.first()[showWeightDetailsKey] }
     }
+    
+    private fun readShowUncertaintyAreaOrNull(): Boolean? {
+        return runBlocking { dataStore.data.first()[showUncertaintyAreaKey] }
+    }
 
     private fun saveAll(items: List<Template>) {
         val encoded = runCatching { encode(items) }.getOrNull() ?: return
@@ -225,15 +253,23 @@ object TemplateManager {
                     put("id", item.id)
                     put("name", item.name)
                     put("coefficientOfUnrelated", item.COEFFICIENT_OF_UNRELATED)
+                    put("enableIntegratedParameter", item.enableIntegratedParameter)
+                    put("savedIntegratedParameterWeight", item.savedIntegratedParameterWeight)
                     put("integratedParameterWeight", item.integratedParameterWeight)
                     put("integratedParameterHalfLife", item.integratedParameterHalfLife)
+                    put("enableArtistDuplicate", item.enableArtistDuplicate)
+                    put("savedArtistDuplicateCoefficient", item.savedArtistDuplicateCoefficient)
                     put("artistDuplicateCoefficient", item.artistDuplicateCoefficient)
                     put("artistDuplicateFadeTime", item.artistDuplicateFadeTime)
                     put("artistPardonTime", item.artistPardonTime)
+                    put("enableAlbumDuplicate", item.enableAlbumDuplicate)
+                    put("savedAlbumDuplicateCoefficient", item.savedAlbumDuplicateCoefficient)
                     put("albumDuplicateCoefficient", item.albumDuplicateCoefficient)
                     put("albumDuplicateFadeTime", item.albumDuplicateFadeTime)
                     put("albumPardonTime", item.albumPardonTime)
                     put("temperature", item.temperature)
+                    put("enablePunishment", item.enablePunishment)
+                    put("savedPunishmentVectorWeight", item.savedPunishmentVectorWeight)
                     put("punishmentVectorFadeTime", item.punishmentVectorFadeTime)
                     put("punishmentVectorWeight", item.punishmentVectorWeight)
                     put("punishmentVectorWeightWhenSwitch", item.punishmentVectorWeightWhenSwitch)
@@ -263,6 +299,11 @@ object TemplateManager {
                     "coefficientOfUnrelated",
                     base.COEFFICIENT_OF_UNRELATED.toDouble()
                 ).toFloat(),
+                enableIntegratedParameter = obj.optBoolean("enableIntegratedParameter", base.enableIntegratedParameter),
+                savedIntegratedParameterWeight = obj.optDouble(
+                    "savedIntegratedParameterWeight",
+                    base.savedIntegratedParameterWeight.toDouble()
+                ).toFloat(),
                 integratedParameterWeight = obj.optDouble(
                     "integratedParameterWeight",
                     base.integratedParameterWeight.toDouble()
@@ -271,6 +312,11 @@ object TemplateManager {
                     "integratedParameterHalfLife",
                     base.integratedParameterHalfLife
                 ),
+                enableArtistDuplicate = obj.optBoolean("enableArtistDuplicate", base.enableArtistDuplicate),
+                savedArtistDuplicateCoefficient = obj.optDouble(
+                    "savedArtistDuplicateCoefficient",
+                    base.savedArtistDuplicateCoefficient.toDouble()
+                ).toFloat(),
                 artistDuplicateCoefficient = obj.optDouble(
                     "artistDuplicateCoefficient",
                     base.artistDuplicateCoefficient.toDouble()
@@ -280,6 +326,11 @@ object TemplateManager {
                     base.artistDuplicateFadeTime
                 ),
                 artistPardonTime = obj.optInt("artistPardonTime", base.artistPardonTime),
+                enableAlbumDuplicate = obj.optBoolean("enableAlbumDuplicate", base.enableAlbumDuplicate),
+                savedAlbumDuplicateCoefficient = obj.optDouble(
+                    "savedAlbumDuplicateCoefficient",
+                    base.savedAlbumDuplicateCoefficient.toDouble()
+                ).toFloat(),
                 albumDuplicateCoefficient = obj.optDouble(
                     "albumDuplicateCoefficient",
                     base.albumDuplicateCoefficient.toDouble()
@@ -287,6 +338,11 @@ object TemplateManager {
                 albumDuplicateFadeTime = obj.optInt("albumDuplicateFadeTime", base.albumDuplicateFadeTime),
                 albumPardonTime = obj.optInt("albumPardonTime", base.albumPardonTime),
                 temperature = obj.optDouble("temperature", base.temperature.toDouble()).toFloat(),
+                enablePunishment = obj.optBoolean("enablePunishment", base.enablePunishment),
+                savedPunishmentVectorWeight = obj.optDouble(
+                    "savedPunishmentVectorWeight",
+                    base.savedPunishmentVectorWeight.toDouble()
+                ).toFloat(),
                 punishmentVectorFadeTime = obj.optInt(
                     "punishmentVectorFadeTime",
                     base.punishmentVectorFadeTime

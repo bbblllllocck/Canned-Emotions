@@ -3,11 +3,56 @@ package com.bbblllllocck.canned_emotions.core.player
 import android.content.Context
 import android.media.MediaPlayer
 import android.net.Uri
+import com.bbblllllocck.canned_emotions.core.api.AppContextProvider
 import java.io.File
 
-class SimpleAudioPlayer(private val context: Context) {
+object SimpleAudioPlayer {
+    private val context: Context by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { AppContextProvider.get() }
     private var mediaPlayer: MediaPlayer? = null
     private var currentSource: String? = null
+
+    fun play(
+        source: String,
+        onPreparing: () -> Unit,
+        onPlaying: () -> Unit,
+        onCompleted: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        runCatching {
+            val activePlayer = mediaPlayer
+            if (activePlayer != null && currentSource == source) {
+                if (!activePlayer.isPlaying) {
+                    activePlayer.start()
+                    onPlaying()
+                }
+                return
+            }
+
+            releaseInternal()
+            onPreparing()
+
+            val uri = source.toPlayableUri()
+            mediaPlayer = MediaPlayer().apply {
+                setOnPreparedListener {
+                    it.start()
+                    onPlaying()
+                }
+                setOnCompletionListener {
+                    onCompleted()
+                }
+                setOnErrorListener { _, what, extra ->
+                    onError("播放器错误 what=$what extra=$extra")
+                    true
+                }
+                setDataSource(context, uri)
+                prepareAsync()
+            }
+            currentSource = source
+        }.onFailure {
+            onError(it.message ?: "未知播放错误")
+            releaseInternal()
+        }
+    }
 
     fun playOrToggle(
         source: String,

@@ -145,4 +145,127 @@ object DatabaseManager {
         box.put(items)
     }
 
+    // --- Export / Import ---
+
+    fun exportToJson(outputStream: java.io.OutputStream) {
+        val box = musicTaskBox()
+        val writer = android.util.JsonWriter(java.io.OutputStreamWriter(outputStream, Charsets.UTF_8))
+        writer.setIndent("  ")
+        writer.beginArray()
+        
+        box.all.forEach { item ->
+            writer.beginObject()
+            writer.name("id").value(item.id)
+            writer.name("filePath").value(item.filePath)
+            writer.name("title").value(item.title)
+            writer.name("album").value(item.album)
+            writer.name("artist").value(item.artist)
+            writer.name("status").value(item.status)
+            writer.name("createdAtMillis").value(item.createdAtMillis)
+            writer.name("updatedAtMillis").value(item.updatedAtMillis)
+            writer.name("musicType").value(item.musicType)
+            writer.name("durationMs").value(item.durationMs)
+            writer.name("lastPlayedDate").value(item.lastPlayedDate)
+            writer.name("integratedTimeParameter").value(item.integratedTimeParameter)
+            
+            if (item.embedding != null) {
+                writer.name("embedding")
+                writer.beginArray()
+                item.embedding!!.forEach { v ->
+                    writer.value(v)
+                }
+                writer.endArray()
+            }
+            writer.endObject()
+        }
+        
+        writer.endArray()
+        writer.close()
+    }
+
+    fun importFromJson(inputStream: java.io.InputStream) {
+        val reader = android.util.JsonReader(java.io.InputStreamReader(inputStream, Charsets.UTF_8))
+        val box = musicTaskBox()
+        val batch = mutableListOf<MusicScanTaskEntity>()
+        
+        reader.beginArray()
+        while (reader.hasNext()) {
+            val item = MusicScanTaskEntity()
+            reader.beginObject()
+            while (reader.hasNext()) {
+                when (reader.nextName()) {
+                    "filePath" -> item.filePath = reader.nextString()
+                    "title" -> item.title = reader.nextString()
+                    "album" -> item.album = reader.nextString()
+                    "artist" -> item.artist = reader.nextString()
+                    "status" -> item.status = reader.nextInt()
+                    "createdAtMillis" -> item.createdAtMillis = reader.nextLong()
+                    "updatedAtMillis" -> item.updatedAtMillis = reader.nextLong()
+                    "musicType" -> item.musicType = reader.nextInt()
+                    "durationMs" -> item.durationMs = reader.nextLong()
+                    "lastPlayedDate" -> item.lastPlayedDate = reader.nextLong()
+                    "integratedTimeParameter" -> item.integratedTimeParameter = reader.nextDouble().toFloat()
+                    "embedding" -> {
+                        val list = mutableListOf<Float>()
+                        reader.beginArray()
+                        while (reader.hasNext()) {
+                            list.add(reader.nextDouble().toFloat())
+                        }
+                        reader.endArray()
+                        item.embedding = list.toFloatArray()
+                    }
+                    else -> reader.skipValue()
+                }
+            }
+            reader.endObject()
+            
+            val existing = box.query(MusicScanTaskEntity_.filePath.equal(item.filePath)).build().findFirst()
+            if (existing != null) {
+                item.id = existing.id
+            }
+            
+            batch.add(item)
+            
+            if (batch.size >= 100) {
+                box.put(batch)
+                batch.clear()
+            }
+        }
+        reader.endArray()
+        
+        if (batch.isNotEmpty()) {
+            box.put(batch)
+        }
+        reader.close()
+    }
+
+    private fun getDbDir(context: Context): java.io.File {
+        return java.io.File(context.filesDir, "objectbox/objectbox")
+    }
+
+    fun exportNativeDatabase(outputStream: java.io.OutputStream, context: Context) {
+        val dbFile = java.io.File(getDbDir(context), "data.mdb")
+        if (dbFile.exists()) {
+            dbFile.inputStream().use { input ->
+                input.copyTo(outputStream)
+            }
+        }
+    }
+
+    fun restoreNativeDatabase(inputStream: java.io.InputStream, context: Context) {
+        store.close()
+        
+        val dbFile = java.io.File(getDbDir(context), "data.mdb")
+        if (dbFile.exists()) {
+            dbFile.delete()
+        }
+        
+        java.io.FileOutputStream(dbFile).use { out ->
+            inputStream.copyTo(out)
+        }
+        
+        store = MyObjectBox.builder()
+            .androidContext(context.applicationContext)
+            .build()
+    }
 }

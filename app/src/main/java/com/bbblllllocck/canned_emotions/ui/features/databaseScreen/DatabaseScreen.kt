@@ -23,6 +23,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.bbblllllocck.canned_emotions.core.database.DatabaseVectorStorgeTaskLogic
 import com.bbblllllocck.canned_emotions.core.database.objectboxFunctions.DatabaseManager
 import com.bbblllllocck.canned_emotions.core.database.objectboxFunctions.MusicScanTaskEntity
@@ -39,6 +44,56 @@ fun DatabaseScreen() {
 
 	val (unprocessed, processed) = remember(allTasks) {
 		allTasks.partition { it.status != MusicScanTaskEntity.DONE }
+	}
+
+	val context = LocalContext.current
+
+	val exportJsonLauncher = rememberLauncherForActivityResult(
+		ActivityResultContracts.CreateDocument("application/json")
+	) { uri ->
+		uri?.let {
+			uiScope.launch(Dispatchers.IO) {
+				context.contentResolver.openOutputStream(it)?.use { out ->
+					DatabaseManager.exportToJson(out)
+				}
+			}
+		}
+	}
+
+	val importJsonLauncher = rememberLauncherForActivityResult(
+		ActivityResultContracts.OpenDocument()
+	) { uri ->
+		uri?.let {
+			uiScope.launch(Dispatchers.IO) {
+				context.contentResolver.openInputStream(it)?.use { input ->
+					DatabaseManager.importFromJson(input)
+				}
+			}
+		}
+	}
+
+	val exportMdbLauncher = rememberLauncherForActivityResult(
+		ActivityResultContracts.CreateDocument("application/octet-stream")
+	) { uri ->
+		uri?.let {
+			uiScope.launch(Dispatchers.IO) {
+				context.contentResolver.openOutputStream(it)?.use { out ->
+					DatabaseManager.exportNativeDatabase(out, context)
+				}
+			}
+		}
+	}
+
+	val importMdbLauncher = rememberLauncherForActivityResult(
+		ActivityResultContracts.OpenDocument()
+	) { uri ->
+		uri?.let {
+			uiScope.launch(Dispatchers.IO) {
+				context.contentResolver.openInputStream(it)?.use { input ->
+					DatabaseManager.restoreNativeDatabase(input, context)
+				}
+			}
+		}
 	}
 
 	Column(
@@ -75,6 +130,30 @@ fun DatabaseScreen() {
 				}
 			)
 			//////////////////////这个按钮要和实际状态同步！
+		}
+
+		Row(
+			modifier = Modifier.fillMaxWidth(),
+			horizontalArrangement = Arrangement.spacedBy(8.dp)
+		) {
+			Button(onClick = { exportJsonLauncher.launch("canned_emotions_backup.json") }) {
+				Text("导出 JSON")
+			}
+			Button(onClick = { importJsonLauncher.launch(arrayOf("application/json", "*/*")) }) {
+				Text("导入 JSON")
+			}
+		}
+		
+		Row(
+			modifier = Modifier.fillMaxWidth(),
+			horizontalArrangement = Arrangement.spacedBy(8.dp)
+		) {
+			Button(onClick = { exportMdbLauncher.launch("data.mdb") }) {
+				Text("备份 MDB")
+			}
+			Button(onClick = { importMdbLauncher.launch(arrayOf("application/octet-stream", "*/*")) }) {
+				Text("还原 MDB")
+			}
 		}
 
 		Row(

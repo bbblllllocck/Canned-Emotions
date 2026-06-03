@@ -15,6 +15,8 @@ class CannedEmotionsApp : Application() {
         AppContextProvider.init(this)//这个奇怪的傻逼名字是哪来的？唉copilot，让它在原有的基础上改就会这样，又是一个技术债！
         DatabaseManager.init(this)
 
+        // 恢复持久化的播放列表状态
+        com.bbblllllocck.canned_emotions.core.player.Playlist.restoreFromPersistence()
 
         val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         ClientManager.initialize(ApiManager.apisFlow, applicationScope)

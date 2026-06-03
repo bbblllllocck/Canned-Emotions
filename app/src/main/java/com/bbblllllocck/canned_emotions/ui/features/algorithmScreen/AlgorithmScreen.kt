@@ -59,15 +59,19 @@ fun AlgorithmScreen() {
                 template = template,
                 onNameChange = viewModel::updateName,
                 onCoefficientOfUnrelatedChange = viewModel::updateCoefficientOfUnrelated,
+                onEnableIntegratedParameterChange = viewModel::updateEnableIntegratedParameter,
                 onIntegratedParameterWeightChange = viewModel::updateIntegratedParameterWeight,
                 onIntegratedParameterHalfLifeChange = viewModel::updateIntegratedParameterHalfLife,
+                onEnableArtistDuplicateChange = viewModel::updateEnableArtistDuplicate,
                 onArtistDuplicateCoefficientChange = viewModel::updateArtistDuplicateCoefficient,
                 onArtistDuplicateFadeTimeChange = viewModel::updateArtistDuplicateFadeTime,
                 onArtistPardonTimeChange = viewModel::updateArtistPardonTime,
+                onEnableAlbumDuplicateChange = viewModel::updateEnableAlbumDuplicate,
                 onAlbumDuplicateCoefficientChange = viewModel::updateAlbumDuplicateCoefficient,
                 onAlbumDuplicateFadeTimeChange = viewModel::updateAlbumDuplicateFadeTime,
                 onAlbumPardonTimeChange = viewModel::updateAlbumPardonTime,
                 onTemperatureChange = viewModel::updateTemperature,
+                onEnablePunishmentChange = viewModel::updateEnablePunishment,
                 onPunishmentVectorFadeTimeChange = viewModel::updatePunishmentVectorFadeTime,
                 onPunishmentVectorWeightChange = viewModel::updatePunishmentVectorWeight,
                 onPunishmentVectorWeightWhenSwitchChange = viewModel::updatePunishmentVectorWeightWhenSwitch,
@@ -103,10 +107,21 @@ fun AlgorithmScreen() {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "显示权重", style = MaterialTheme.typography.bodyMedium)
+                Text(text = "显示详细权重", style = MaterialTheme.typography.bodyMedium)
                 Switch(
                     checked = state.showWeightDetails,
                     onCheckedChange = viewModel::setWeightDetailsEnabled
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "显示不确定区", style = MaterialTheme.typography.bodyMedium)
+                Switch(
+                    checked = state.showUncertaintyArea,
+                    onCheckedChange = viewModel::setShowUncertaintyAreaEnabled
                 )
             }
 
@@ -201,15 +216,19 @@ private fun AlgorithmEditScreen(
     template: Template,
     onNameChange: (String) -> Unit,
     onCoefficientOfUnrelatedChange: (Float) -> Unit,
+    onEnableIntegratedParameterChange: (Boolean) -> Unit,
     onIntegratedParameterWeightChange: (Float) -> Unit,
     onIntegratedParameterHalfLifeChange: (Int) -> Unit,
+    onEnableArtistDuplicateChange: (Boolean) -> Unit,
     onArtistDuplicateCoefficientChange: (Float) -> Unit,
     onArtistDuplicateFadeTimeChange: (Int) -> Unit,
     onArtistPardonTimeChange: (Int) -> Unit,
+    onEnableAlbumDuplicateChange: (Boolean) -> Unit,
     onAlbumDuplicateCoefficientChange: (Float) -> Unit,
     onAlbumDuplicateFadeTimeChange: (Int) -> Unit,
     onAlbumPardonTimeChange: (Int) -> Unit,
     onTemperatureChange: (Float) -> Unit,
+    onEnablePunishmentChange: (Boolean) -> Unit,
     onPunishmentVectorFadeTimeChange: (Int) -> Unit,
     onPunishmentVectorWeightChange: (Float) -> Unit,
     onPunishmentVectorWeightWhenSwitchChange: (Float) -> Unit,
@@ -252,162 +271,220 @@ private fun AlgorithmEditScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            SectionHeader(title = "相关性与次数", subtitle = "设置重复惩罚与随时间衰减的权重。")
-            FloatSliderWithInput(
-                label = "不相关系数",
-                description = "越大越排斥重复内容，影响整体权重。",
-                value = template.COEFFICIENT_OF_UNRELATED,
-                range = 0f..1f,
-                onValueChange = onCoefficientOfUnrelatedChange
-            )
-            FloatSliderWithInput(
-                label = "时间&次数权重",
-                description = "听得越多，越容易被衰减。",
-                value = template.integratedParameterWeight,
-                range = 0f..1f,
-                onValueChange = onIntegratedParameterWeightChange
-            )
-            IntSliderWithInput(
-                label = "半衰期",
-                description = "听歌次数影响在此天数内衰减一半。",
-                value = template.integratedParameterHalfLife,
-                range = 1..365,
-                unitLabel = "天",
-                onValueChange = onIntegratedParameterHalfLifeChange
-            )
+            SettingGroupCard(title = "基础设置", subtitle = "影响整体算法的核心参数") {
+                FloatSliderWithInput(
+                    label = "不相关系数",
+                    description = "达到此系数时，认为结果与起始点完全不相关。",
+                    value = template.COEFFICIENT_OF_UNRELATED,
+                    range = 0f..1f,
+                    onValueChange = onCoefficientOfUnrelatedChange
+                )
+                FloatSliderWithInput(
+                    label = "随机温度",
+                    description = "越高越随机，越低越稳定。不要调太高，不然就近似于纯随机了。",
+                    value = template.temperature,
+                    range = 0f..0.5f,
+                    format = { "%.4f".format(it) },
+                    onValueChange = onTemperatureChange
+                )
+            }
 
-            SectionHeader(title = "查重策略", subtitle = "在赦免时间内允许重复，查重时间内降低权重，消逝时间后清除。")
-            DuplicatePolicyGroup(
-                title = "艺术家",
-                coefficientPerMinute = template.artistDuplicateCoefficient * MS_PER_MINUTE,
-                onCoefficientPerMinuteChange = { onArtistDuplicateCoefficientChange(it / MS_PER_MINUTE) },
-                pardonTimeMs = template.artistPardonTime,
-                onPardonTimeChange = onArtistPardonTimeChange,
-                fadeTimeMs = template.artistDuplicateFadeTime,
-                onFadeTimeChange = onArtistDuplicateFadeTimeChange
-            )
-            DuplicatePolicyGroup(
-                title = "专辑",
-                coefficientPerMinute = template.albumDuplicateCoefficient * MS_PER_MINUTE,
-                onCoefficientPerMinuteChange = { onAlbumDuplicateCoefficientChange(it / MS_PER_MINUTE) },
-                pardonTimeMs = template.albumPardonTime,
-                onPardonTimeChange = onAlbumPardonTimeChange,
-                fadeTimeMs = template.albumDuplicateFadeTime,
-                onFadeTimeChange = onAlbumDuplicateFadeTimeChange
-            )
+            SettingGroupCard(
+                title = "听歌频率推荐", 
+                subtitle = "控制历史播放记录的影响",
+                enabled = template.enableIntegratedParameter,
+                onEnabledChange = onEnableIntegratedParameterChange
+            ) {
+                val times = if (template.integratedParameterWeight > 0f) "%.1f".format(1f / template.integratedParameterWeight) else "无穷"
+                FloatSliderWithInput(
+                    label = "推荐次数权重",
+                    description = "一首歌被推荐 $times 次后，将极大降低权重。",
+                    value = if (template.enableIntegratedParameter) template.integratedParameterWeight else template.savedIntegratedParameterWeight,
+                    range = 0f..1f,
+                    enabled = template.enableIntegratedParameter,
+                    onValueChange = onIntegratedParameterWeightChange
+                )
+                IntSliderWithInput(
+                    label = "衰减半衰期",
+                    description = "听歌次数的影响在此天数后衰减一半。",
+                    value = template.integratedParameterHalfLife,
+                    range = 1..365,
+                    unitLabel = "天",
+                    enabled = template.enableIntegratedParameter,
+                    onValueChange = onIntegratedParameterHalfLifeChange
+                )
+            }
 
-            SectionHeader(title = "随机性", subtitle = "控制结果的随机程度。")
-            FloatSliderWithInput(
-                label = "温度",
-                description = "越高越随机，越低越稳定。",
-                value = template.temperature,
-                range = 0f..1f,
-                onValueChange = onTemperatureChange
-            )
+            SettingGroupCard(
+                title = "艺术家查重", 
+                subtitle = "控制连续播放同一艺术家的惩罚",
+                enabled = template.enableArtistDuplicate,
+                onEnabledChange = onEnableArtistDuplicateChange
+            ) {
+                DuplicatePolicyGroup(
+                    title = "艺术家",
+                    enabled = template.enableArtistDuplicate,
+                    coefficientPerMinute = if (template.enableArtistDuplicate) template.artistDuplicateCoefficient * MS_PER_MINUTE else template.savedArtistDuplicateCoefficient * MS_PER_MINUTE,
+                    onCoefficientPerMinuteChange = { onArtistDuplicateCoefficientChange(it / MS_PER_MINUTE) },
+                    pardonTimeMs = template.artistPardonTime,
+                    onPardonTimeChange = onArtistPardonTimeChange,
+                    fadeTimeMs = template.artistDuplicateFadeTime,
+                    onFadeTimeChange = onArtistDuplicateFadeTimeChange
+                )
+            }
 
-            SectionHeader(title = "惩罚向量", subtitle = "对被跳过歌曲的惩罚强度。")
-            TimeSliderWithInput(
-                label = "惩罚衰减时长",
-                description = "惩罚在此秒数内逐步衰减。",
-                valueMs = template.punishmentVectorFadeTime,
-                rangeMs = 0..1_000_000,
-                unit = TimeUnitType.Seconds,
-                onValueChange = onPunishmentVectorFadeTimeChange
-            )
-            FloatSliderWithInput(
-                label = "惩罚权重",
-                description = "越大越强烈地避免近期被惩罚的歌曲。",
-                value = template.punishmentVectorWeight,
-                range = 0f..1f,
-                onValueChange = onPunishmentVectorWeightChange
-            )
-            FloatSliderWithInput(
-                label = "手动切歌惩罚",
-                description = "手动切歌时惩罚向量额外权重。",
-                value = template.punishmentVectorWeightWhenSwitch,
-                range = 0f..1f,
-                onValueChange = onPunishmentVectorWeightWhenSwitchChange
-            )
+            SettingGroupCard(
+                title = "专辑查重", 
+                subtitle = "控制连续播放同一专辑的惩罚",
+                enabled = template.enableAlbumDuplicate,
+                onEnabledChange = onEnableAlbumDuplicateChange
+            ) {
+                DuplicatePolicyGroup(
+                    title = "专辑",
+                    enabled = template.enableAlbumDuplicate,
+                    coefficientPerMinute = if (template.enableAlbumDuplicate) template.albumDuplicateCoefficient * MS_PER_MINUTE else template.savedAlbumDuplicateCoefficient * MS_PER_MINUTE,
+                    onCoefficientPerMinuteChange = { onAlbumDuplicateCoefficientChange(it / MS_PER_MINUTE) },
+                    pardonTimeMs = template.albumPardonTime,
+                    onPardonTimeChange = onAlbumPardonTimeChange,
+                    fadeTimeMs = template.albumDuplicateFadeTime,
+                    onFadeTimeChange = onAlbumDuplicateFadeTimeChange
+                )
+            }
 
-            SectionHeader(title = "单曲比例", subtitle = "开启后才允许设置单曲与纯音乐比例。")
-            ProportionToggleRow(
-                enabled = template.songProportion >= 0f,
-                onToggle = { enabled ->
-                    onSongProportionChange(if (enabled) template.songProportion.coerceIn(0f, 1f) else -1f)
-                }
-            )
-            FloatSliderWithInput(
-                label = "单曲/纯音比例",
-                description = "0 偏纯音乐，1 偏单曲。",
-                value = template.songProportion.coerceIn(0f, 1f),
-                range = 0f..1f,
-                enabled = template.songProportion >= 0f,
-                onValueChange = onSongProportionChange
-            )
-            TimeSliderWithInput(
-                label = "比例容忍时间",
-                description = "达到此时间后比例偏好影响更明显。",
-                valueMs = template.tolerance,
-                rangeMs = 0..1_000_000,
-                unit = TimeUnitType.Seconds,
-                onValueChange = onToleranceChange
-            )
+            SettingGroupCard(
+                title = "换歌惩罚", 
+                subtitle = "切歌时触发的惩罚机制",
+                enabled = template.enablePunishment,
+                onEnabledChange = onEnablePunishmentChange
+            ) {
+                FloatSliderWithInput(
+                    label = "自动切歌惩罚",
+                    description = "自然播放下一首时附加的惩罚权重。",
+                    value = if (template.enablePunishment) template.punishmentVectorWeight else template.savedPunishmentVectorWeight,
+                    range = 0f..1f,
+                    enabled = template.enablePunishment,
+                    onValueChange = onPunishmentVectorWeightChange
+                )
+                FloatSliderWithInput(
+                    label = "手动切歌惩罚",
+                    description = "手动切换歌曲时附加的惩罚权重。",
+                    value = template.punishmentVectorWeightWhenSwitch,
+                    range = 0f..1f,
+                    enabled = template.enablePunishment,
+                    onValueChange = onPunishmentVectorWeightWhenSwitchChange
+                )
+                TimeSliderWithInput(
+                    label = "惩罚衰减时长",
+                    description = "惩罚向量在此秒数内平滑衰减至零。",
+                    valueMs = template.punishmentVectorFadeTime,
+                    rangeMs = 0..1_000_000,
+                    unit = TimeUnitType.Seconds,
+                    enabled = template.enablePunishment,
+                    onValueChange = onPunishmentVectorFadeTimeChange
+                )
+            }
 
-            SectionHeader(title = "扩散模式", subtitle = "控制算法在相似空间中的扩散方式。")
-            IntSliderWithInput(
-                label = "扩散类型",
-                description = "0 为中心扩散，1 为线性扩散。",
-                value = template.roamingType,
-                range = 0..1,
-                onValueChange = onRoamingTypeChange
-            )
-            val isLinear = template.roamingType == 1
-            TimeSliderWithInput(
-                label = "回归长度",
-                description = "线性扩散中回归向量的作用时长。",
-                valueMs = template.regressionLength,
-                rangeMs = 0..7_200_000,
-                unit = TimeUnitType.Minutes,
-                enabled = isLinear,
-                onValueChange = onRegressionLengthChange
-            )
-            FloatSliderWithInput(
-                label = "回归初始权重",
-                description = "线性扩散中回归向量的初始占比。",
-                value = template.initialRegressionWeight,
-                range = 0f..1f,
-                enabled = isLinear,
-                onValueChange = onInitialRegressionWeightChange
-            )
-            FloatSliderWithInput(
-                label = "方向比例",
-                description = "线性扩散方向在剩余权重中的占比。",
-                value = template.directionRatio,
-                range = 0f..1f,
-                enabled = isLinear,
-                onValueChange = onDirectionRatioChange
-            )
+            SettingGroupCard(title = "单曲比例", subtitle = "设置推荐结果中单曲与纯音乐的比例") {
+                ProportionToggleRow(
+                    enabled = template.songProportion >= 0f,
+                    onToggle = { enabled ->
+                        onSongProportionChange(if (enabled) template.songProportion.coerceIn(0f, 1f) else -1f)
+                    }
+                )
+                FloatSliderWithInput(
+                    label = "单曲/纯音比例",
+                    description = "0 代表全纯音乐，1 代表全单曲。",
+                    value = template.songProportion.coerceIn(0f, 1f),
+                    range = 0f..1f,
+                    enabled = template.songProportion >= 0f,
+                    onValueChange = onSongProportionChange
+                )
+                TimeSliderWithInput(
+                    label = "比例容忍时间",
+                    description = "播放时间*比例达到此值会极大影响权重。",
+                    valueMs = template.tolerance,
+                    rangeMs = 0..1_000_000,
+                    unit = TimeUnitType.Seconds,
+                    onValueChange = onToleranceChange
+                )
+            }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            SettingGroupCard(title = "漫游/扩散模式", subtitle = "控制算法在特征空间中的移动方式") {
+                IntSliderWithInput(
+                    label = "扩散类型",
+                    description = "0 为中心扩散，1 为线性扩散。",
+                    value = template.roamingType,
+                    range = 0..1,
+                    onValueChange = onRoamingTypeChange
+                )
+                val isLinear = template.roamingType == 1
+                TimeSliderWithInput(
+                    label = "回归长度",
+                    description = "线性扩散模式下，考虑相似性的时间长度。",
+                    valueMs = template.regressionLength,
+                    rangeMs = 0..7_200_000,
+                    unit = TimeUnitType.Minutes,
+                    enabled = isLinear,
+                    onValueChange = onRegressionLengthChange
+                )
+                FloatSliderWithInput(
+                    label = "初始回归权重",
+                    description = "回归向量在回归长度内的初始权重，随后均匀衰减。",
+                    value = template.initialRegressionWeight,
+                    range = 0f..1f,
+                    enabled = isLinear,
+                    onValueChange = onInitialRegressionWeightChange
+                )
+                FloatSliderWithInput(
+                    label = "方向比例",
+                    description = "线性扩散的方向占剩余权重的比例。",
+                    value = template.directionRatio,
+                    range = 0f..1f,
+                    enabled = isLinear,
+                    onValueChange = onDirectionRatioChange
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
 
 @Composable
-private fun SectionHeader(title: String, subtitle: String) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(text = title, style = MaterialTheme.typography.titleMedium)
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(top = 2.dp)
-        )
+private fun SettingGroupCard(
+    title: String, 
+    subtitle: String, 
+    enabled: Boolean = true,
+    onEnabledChange: ((Boolean) -> Unit)? = null,
+    content: @Composable () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (onEnabledChange != null) {
+                    Switch(checked = enabled, onCheckedChange = onEnabledChange)
+                }
+            }
+            content()
+        }
     }
 }
 
 @Composable
 private fun DuplicatePolicyGroup(
     title: String,
+    enabled: Boolean = true,
     coefficientPerMinute: Float,
     onCoefficientPerMinuteChange: (Float) -> Unit,
     pardonTimeMs: Int,
@@ -419,31 +496,36 @@ private fun DuplicatePolicyGroup(
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(text = "$title 查重", style = MaterialTheme.typography.titleSmall)
             TimeSliderWithInput(
-                label = "赦免时间",
-                description = "这段时间内允许重复播放。",
+                label = "额外允许时间",
+                description = "当切换到不同的${title}时允许额外多播此时间。不要调太高，不然查重会发挥不了作用。",
                 valueMs = pardonTimeMs,
                 rangeMs = 0..1_800_000,
                 unit = TimeUnitType.Minutes,
+                enabled = enabled,
                 onValueChange = onPardonTimeChange
             )
             FloatSliderWithInput(
-                label = "查重强度（每分钟）",
-                description = "每分钟累积的重复惩罚强度。",
+                label = "查重惩罚系数",
+                description = "播放每分钟扣除的权重。",
                 value = coefficientPerMinute,
-                range = 0f..1f,
+                range = 0f..0.02f,
+                format = { "%.4f".format(it) },
+                enabled = enabled,
                 onValueChange = onCoefficientPerMinuteChange
             )
             TimeSliderWithInput(
-                label = "消逝时间",
-                description = "惩罚在这段时间内逐步清除。",
+                label = "查重消逝时间",
+                description = "此时间后该${title}的查重惩罚完全消失。",
                 valueMs = fadeTimeMs,
-                rangeMs = 0..1_800_000,
+                rangeMs = 0..7_200_000,
                 unit = TimeUnitType.Minutes,
+                enabled = enabled,
                 onValueChange = onFadeTimeChange
             )
         }
     }
 }
+
 
 @Composable
 private fun ProportionToggleRow(
