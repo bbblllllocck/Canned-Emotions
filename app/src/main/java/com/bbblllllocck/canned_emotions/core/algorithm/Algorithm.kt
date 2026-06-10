@@ -308,7 +308,17 @@ class Algorithm {
 
         fun softmaxPick(items: List<ScoreEntry>, temperature: Float): Int {
             if (items.isEmpty()) return -1
-            if (temperature <= 0f) return 0
+            if (temperature <= 0f) {
+                var maxIdx = 0
+                var maxVal = items[0].score
+                for (i in 1 until items.size) {
+                    if (items[i].score > maxVal) {
+                        maxVal = items[i].score
+                        maxIdx = i
+                    }
+                }
+                return maxIdx
+            }
 
             val maxScore = items.maxOf { it.score }
             val expScores = items.map { exp((it.score - maxScore) / temperature) }
