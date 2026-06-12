@@ -1,4 +1,7 @@
 # Canned-Emotions - 听点什么
+
+**如果你是看了视频来的，新的README还没写好，得过个两三天，你先凑合着用用吧**
+
 > 以 Gemini Embedding 2 为核心的 Android 本地音乐智能播放工具。  
 > A smart local music playing tool powered by Gemini Embedding 2.
 

@@ -358,20 +358,20 @@ private fun AlgorithmEditScreen(
                 onEnabledChange = onEnablePunishmentChange
             ) {
                 FloatSliderWithInput(
-                    label = "自动切歌惩罚",
-                    description = "自然播放下一首时附加的惩罚权重。",
-                    value = if (template.enablePunishment) template.punishmentVectorWeight else template.savedPunishmentVectorWeight,
-                    range = 0f..1f,
-                    enabled = template.enablePunishment,
-                    onValueChange = onPunishmentVectorWeightChange
-                )
-                FloatSliderWithInput(
-                    label = "手动切歌惩罚",
-                    description = "手动切换歌曲时附加的惩罚权重。",
+                    label = "常规切歌惩罚",
+                    description = "点击【切歌键】跳过或移除当前歌曲时产生的惩罚向量基础权重。",
                     value = template.punishmentVectorWeightWhenSwitch,
                     range = 0f..1f,
                     enabled = template.enablePunishment,
                     onValueChange = onPunishmentVectorWeightWhenSwitchChange
+                )
+                FloatSliderWithInput(
+                    label = "跳转切歌惩罚",
+                    description = "直接【点击播放列表】跳转到其他歌曲时触发的惩罚权重。",
+                    value = if (template.enablePunishment) template.punishmentVectorWeight else template.savedPunishmentVectorWeight,
+                    range = 0f..1f,
+                    enabled = template.enablePunishment,
+                    onValueChange = onPunishmentVectorWeightChange
                 )
                 TimeSliderWithInput(
                     label = "惩罚衰减时长",
@@ -392,8 +392,8 @@ private fun AlgorithmEditScreen(
                     }
                 )
                 FloatSliderWithInput(
-                    label = "单曲/纯音比例",
-                    description = "0 代表全纯音乐，1 代表全单曲。",
+                    label = "单曲占比",
+                    description = "单曲在整个播放列表中的目标占比。",
                     value = template.songProportion.coerceIn(0f, 1f),
                     range = 0f..1f,
                     enabled = template.songProportion >= 0f,

@@ -209,7 +209,7 @@ object Playlist {
         // 触发一次recalculateUncertainList()，因为session参数变了。
         val currentSong = certainList.getOrNull(currentIndex) ?: return
         if (shouldApplySwitchPunishment()) {
-            addPunishmentWeight(currentSong, usingTemplate?.punishmentVectorWeight ?: 0.15f, currentIndex)
+            addPunishmentWeight(currentSong, usingTemplate?.punishmentVectorWeightWhenSwitch ?: 0.3f, currentIndex)
         }
 
         if (shouldApplySwitchPunishment()) {
@@ -263,7 +263,7 @@ object Playlist {
         val currentSong = certainList.getOrNull(currentIndex) ?: return
         if (shouldApplySwitchPunishment()) {
             addPunishmentWeight(currentSong,
-                usingTemplate?.punishmentVectorWeightWhenSwitch ?: 0.075f, currentIndex)
+                usingTemplate?.punishmentVectorWeight ?: 0.15f, currentIndex)
         }
 
         if (targetIndex < certainList.size) {
@@ -304,7 +304,7 @@ object Playlist {
             val removed = uncertainList.getOrNull(uncertainIndex) ?: return
             uncertainList.removeAt(uncertainIndex)
             deletedSongs.add(removed)
-            addPunishmentWeight(removed, usingTemplate?.punishmentVectorWeightWhenSwitch ?: 0.075f, currentIndex)
+            addPunishmentWeight(removed, usingTemplate?.punishmentVectorWeight ?: 0.15f, currentIndex)
         }
 
         ensureBuffer()
