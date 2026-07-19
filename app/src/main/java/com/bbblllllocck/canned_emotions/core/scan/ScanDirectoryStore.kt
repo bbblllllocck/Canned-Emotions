@@ -27,6 +27,16 @@ class ScanDirectoryStore(private val context: Context) {
             .sortedBy { it.displayPath }
     }
 
+    suspend fun removeDirectory(treeUri: String) {
+        context.scanDirectoryDataStore.edit { prefs ->
+            val existing = prefs[directoryRecordsKey].orEmpty()
+            val next = existing
+                .filterNot { record -> decodeRecord(record)?.treeUri == treeUri }
+                .toMutableSet()
+            prefs[directoryRecordsKey] = next
+        }
+    }
+
     suspend fun addOrReplaceDirectory(treeUri: String, displayPath: String) {
         context.scanDirectoryDataStore.edit { prefs ->
             val existing = prefs[directoryRecordsKey].orEmpty()

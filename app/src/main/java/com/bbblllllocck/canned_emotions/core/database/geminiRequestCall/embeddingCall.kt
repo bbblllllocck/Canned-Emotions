@@ -28,7 +28,7 @@ import kotlin.coroutines.resumeWithException
 
 object EmbeddingCall {
 
-    private const val MODEL_NAME = "gemini-embedding-2-preview"
+    private const val MODEL_NAME = "gemini-embedding-2"
 
 
     val context: Context get() = AppContextProvider.get()
@@ -84,7 +84,7 @@ object EmbeddingCall {
                 .setClippingConfiguration(
                     MediaItem.ClippingConfiguration.Builder()
                         .setStartPositionMs(0L)       // 从头开始 (可选)
-                        .setEndPositionMs(80_000L)    // 关键：强制在 80 秒处剪断
+                        .setEndPositionMs(180_000L)   // 关键：强制在 180 秒处剪断
                         .build()
                 )
                 .build()

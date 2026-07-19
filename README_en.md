@@ -67,7 +67,7 @@ ________________________________________________________________________________
 
 ## How does it work?
 
-The principle is very simple. We just downgrade the audio quality, cut it into 80-second snippets, throw the whole thing to Gemini Embedding 2 to generate vectors, and then store them in the [ObjectBox](https://github.com/objectbox) database. When you want something, you just use text or whatever to generate a vector, search with it, or directly use existing vectors to find similarities, add some small algorithms to correct the results, and that's it. It's that simple.
+The principle is very simple. We just downgrade the audio quality, cut it into 180-second snippets, throw the whole thing to Gemini Embedding 2 to generate vectors, and then store them in the [ObjectBox](https://github.com/objectbox) database. When you want something, you just use text or whatever to generate a vector, search with it, or directly use existing vectors to find similarities, add some small algorithms to correct the results, and that's it. It's that simple.
 
 
 __________________________________________________________________________________________

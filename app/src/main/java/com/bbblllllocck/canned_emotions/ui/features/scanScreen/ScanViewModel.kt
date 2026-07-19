@@ -69,6 +69,13 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun removeDirectory(uri: String) {
+        viewModelScope.launch {
+            directoryStore.removeDirectory(uri)
+            _state.update { it.copy(statusMessage = "已移除目录") }
+        }
+    }
+
     fun startScan() {
         val directories = _state.value.selectedDirectories
         if (directories.isEmpty()) {

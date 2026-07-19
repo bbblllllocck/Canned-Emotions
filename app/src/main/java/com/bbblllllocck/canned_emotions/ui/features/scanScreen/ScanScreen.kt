@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,9 +15,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -67,13 +70,25 @@ fun ScanScreen() {
         ) {
             items(state.selectedDirectories, key = { it.treeUri }) { item ->
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(text = item.displayPath, style = MaterialTheme.typography.bodyLarge)
-                        Text(text = "Uri: ${item.treeUri}", style = MaterialTheme.typography.bodySmall)
-                        Text(text = "上次写入: ${item.lastInsertedCount} 条", style = MaterialTheme.typography.bodySmall)
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(text = item.displayPath, style = MaterialTheme.typography.bodyLarge)
+                            Text(text = "Uri: ${item.treeUri}", style = MaterialTheme.typography.bodySmall)
+                            Text(text = "上次写入: ${item.lastInsertedCount} 条", style = MaterialTheme.typography.bodySmall)
+                        }
+                        TextButton(
+                            onClick = { scanViewModel.removeDirectory(item.treeUri) },
+                            enabled = !state.isScanning
+                        ) {
+                            Text("删除")
+                        }
                     }
                 }
             }
