@@ -1,0 +1,92 @@
+name: Build temporary FFmpegKitNext arm64 AAR
+
+on:
+  push:
+    branches: ["ci/ffmpegkit-next-arm64-20261030"]
+    paths: [".github/workflows/ffmpegkit-next-arm64.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ffmpegkit-next-arm64-20261030
+  cancel-in-progress: false
+
+jobs:
+  aar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash
+        working-directory: next
+    steps:
+      - name: Checkout pinned upstream
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: arthenica/ffmpeg-kit-next
+          ref: 9f04bf1e3c97def70b98e198cb80a57b43ef5b45
+          path: next
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31
+        with:
+          enable_kvm: false
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Record environment
+        run: |
+          set -euo pipefail
+          mkdir -p ci-metadata
+          git rev-parse HEAD > ci-metadata/next-commit.txt
+          cp flake.lock ci-metadata/flake.lock
+          uname -a > ci-metadata/host.txt
+          df -h > ci-metadata/disk-before.txt
+          nix --version > ci-metadata/nix-version.txt
+          printf '%s\n' './nix-android.sh -p android-r27d --arch=arm64-v8a --jobs=2' > ci-metadata/build-command.txt
+
+      - name: Build base arm64 AAR
+        run: |
+          set -euo pipefail
+          ./nix-android.sh -p android-r27d --arch=arm64-v8a --jobs=2 2>&1 | tee ci-metadata/console.log
+
+      - name: Validate and fingerprint outputs
+        run: |
+          set -euo pipefail
+          aar=prebuilt/bundle-android-aar-24-maven/com/arthenica/ffmpeg-kit-next/9.0.2/ffmpeg-kit-next-9.0.2.aar
+          pom=prebuilt/bundle-android-aar-24-maven/com/arthenica/ffmpeg-kit-next/9.0.2/ffmpeg-kit-next-9.0.2.pom
+          test -s "$aar"
+          test -s "$pom"
+          unzip -Z1 "$aar" > ci-metadata/aar-entries.txt
+          grep -q '^jni/arm64-v8a/.*\.so$' ci-metadata/aar-entries.txt
+          if grep '^jni/' ci-metadata/aar-entries.txt | grep -Ev '^jni/(arm64-v8a/.*)?$'; then
+            echo 'Unexpected ABI payload' >&2
+            exit 1
+          fi
+          sha256sum "$aar" "$pom" > ci-metadata/SHA256SUMS
+          git -C src/ffmpeg rev-parse HEAD > ci-metadata/ffmpeg-commit.txt
+          df -h > ci-metadata/disk-after.txt
+
+      - name: Upload Maven repository
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ffmpeg-kit-next-9.0.2-base-arm64-api24-maven
+          path: next/prebuilt/bundle-android-aar-24-maven/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ffmpeg-kit-next-9.0.2-build-diagnostics
+          path: |
+            next/ci-metadata/
+            next/build.log
+            next/src/ffmpeg/ffbuild/config.log
+          if-no-files-found: warn
+          retention-days: 7
