@@ -1,15 +1,15 @@
-name: Build temporary FFmpegKitNext arm64 AAR
+name: Build temporary FFmpegKitNext LAME arm64 AAR
 
 on:
   push:
-    branches: ["ci/ffmpegkit-next-arm64-20261030"]
+    branches: ["ci/ffmpegkit-next-lame-20261031"]
     paths: [".github/workflows/ffmpegkit-next-arm64.yml"]
 
 permissions:
   contents: read
 
 concurrency:
-  group: ffmpegkit-next-arm64-20261030
+  group: ffmpegkit-next-lame-20261031
   cancel-in-progress: false
 
 jobs:
@@ -46,12 +46,12 @@ jobs:
           uname -a > ci-metadata/host.txt
           df -h > ci-metadata/disk-before.txt
           nix --version > ci-metadata/nix-version.txt
-          printf '%s\n' './nix-android.sh -p android-r27d --arch=arm64-v8a --jobs=2' > ci-metadata/build-command.txt
+          printf '%s\n' './nix-android.sh -p android-r27d --arch=arm64-v8a --jobs=2 --enable-lib-lame' > ci-metadata/build-command.txt
 
-      - name: Build base arm64 AAR
+      - name: Build arm64 AAR with MP3 encoder
         run: |
           set -euo pipefail
-          ./nix-android.sh -p android-r27d --arch=arm64-v8a --jobs=2 2>&1 | tee ci-metadata/console.log
+          ./nix-android.sh -p android-r27d --arch=arm64-v8a --jobs=2 --enable-lib-lame 2>&1 | tee ci-metadata/console.log
 
       - name: Validate and fingerprint outputs
         run: |
@@ -68,12 +68,15 @@ jobs:
           fi
           sha256sum "$aar" "$pom" > ci-metadata/SHA256SUMS
           git -C src/ffmpeg rev-parse HEAD > ci-metadata/ffmpeg-commit.txt
+          git -C src/lame rev-parse HEAD > ci-metadata/lame-commit.txt
+          cp src/lame/lame/COPYING ci-metadata/lame-COPYING
+          if test -f src/ffmpeg/config.h; then cp src/ffmpeg/config.h ci-metadata/ffmpeg-config.h; fi
           df -h > ci-metadata/disk-after.txt
 
       - name: Upload Maven repository
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: ffmpeg-kit-next-9.0.2-base-arm64-api24-maven
+          name: ffmpeg-kit-next-9.0.2-lame-arm64-api24-maven
           path: next/prebuilt/bundle-android-aar-24-maven/
           if-no-files-found: error
           retention-days: 7
@@ -83,7 +86,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: ffmpeg-kit-next-9.0.2-build-diagnostics
+          name: ffmpeg-kit-next-9.0.2-lame-build-diagnostics
           path: |
             next/ci-metadata/
             next/build.log
