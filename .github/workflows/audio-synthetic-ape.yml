@@ -1,0 +1,57 @@
+name: Generate synthetic APE audio fixture
+
+on:
+  push:
+    branches: ["ci/ffmpegkit-next-lame-20261031"]
+    paths: [".github/workflows/audio-synthetic-ape.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Download and verify official SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 https://monkeysaudio.com/files/MAC_1345_SDK.zip -o MAC_1345_SDK.zip
+          printf '%s  %s\n' b12bda0eb9e31dbe01d54a970d387add3a8c1079901141021d257de17a6a9106 MAC_1345_SDK.zip | sha256sum --check
+          unzip -q MAC_1345_SDK.zip -d ape-sdk-1345
+
+      - name: Build official console tool
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake -S ape-sdk-1345 -B ape-build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED=OFF -DBUILD_UTIL=ON
+          cmake --build ape-build --target macutil --parallel 2
+
+      - name: Generate and verify synthetic APE
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v ffmpeg >/dev/null; then sudo apt-get update -qq; sudo apt-get install -y ffmpeg; fi
+          mkdir -p fixture
+          ffmpeg -hide_banner -nostdin -y -f lavfi -i 'aevalsrc=0.12*sin(2*PI*440*t)|0.12*sin(2*PI*880*t):s=48000:d=10' -c:a pcm_s16le fixture/seed.wav
+          ./ape-build/mac fixture/seed.wav fixture/small10.ape -c2000 -threads=1
+          ./ape-build/mac fixture/small10.ape -V
+          ffmpeg -hide_banner -nostdin -y -i fixture/seed.wav -c:a pcm_s16le -f s16le reference.pcm
+          ffmpeg -hide_banner -nostdin -y -i fixture/small10.ape -c:a pcm_s16le -f s16le decoded.pcm
+          cmp reference.pcm decoded.pcm
+          sha256sum MAC_1345_SDK.zip fixture/small10.ape reference.pcm > fixture/SHA256SUMS
+          printf '%s\n' 'Official Monkey Audio SDK 13.45; normal compression -c2000 -threads=1; 10 seconds 48000 Hz stereo signed PCM16 source; left/right=0.12*sin(440/880 Hz); no user audio; decoded PCM equality verified' > fixture/provenance.txt
+          ffmpeg -version > fixture/ffmpeg-version.txt
+
+      - name: Upload synthetic fixture
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: synthetic-ape-1345-48st-10s
+          path: |
+            fixture/small10.ape
+            fixture/SHA256SUMS
+            fixture/provenance.txt
+            fixture/ffmpeg-version.txt
+          if-no-files-found: error
+          retention-days: 7
